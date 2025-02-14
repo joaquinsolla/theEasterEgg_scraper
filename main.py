@@ -1,14 +1,18 @@
 import json
 import os
-from datetime import datetime
 import subprocess
 import requests
 import time
+from datetime import datetime
 
 parent_path = './' # Default
 #parent_path = '/home/raspy/Desktop/theEasterEgg_scraper/' # Crontab
 
 def initialize():
+    """
+    Creates the needed set of folders and files for the execution.
+    """
+
     folder = os.path.join(parent_path, "json_data")
     data_file = os.path.join(folder, "data.json")
 
@@ -22,10 +26,19 @@ def initialize():
         print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Created data.json file")
 
 def get_time():
+    """
+    :return:
+    """
     return int(time.time())
 
-def update_general_data(new_games_chunk, file):
-    old_games = []
+def update_main_data(apps_chunk, file):
+    """
+    :param apps_chunk:
+    :param file:
+    :return:
+    """
+
+    old_apps = []
     default_store_json = {
         "availability": False,
         "price_in_cents": -1,
@@ -34,15 +47,15 @@ def update_general_data(new_games_chunk, file):
     if os.path.exists(file):
         if os.path.getsize(file) > 0:
             with open(file, "r", encoding="utf-8") as f:
-                old_games = json.load(f)
+                old_apps = json.load(f)
 
-    old_data_dict = {entry["appid"]: entry for entry in old_games}
+    old_apps_dict = {entry["appid"]: entry for entry in old_apps}
 
-    for app in new_games_chunk:
+    for app in apps_chunk:
         appid = app["appid"]
         app.pop("price_change_number", None)
-        if appid in old_data_dict:
-            old_entry = old_data_dict[appid]
+        if appid in old_apps_dict:
+            old_entry = old_apps_dict[appid]
             if "last_fetched" in old_entry:
                 app["last_fetched"] = old_entry["last_fetched"]
             if "steam" in old_entry:
@@ -59,9 +72,9 @@ def update_general_data(new_games_chunk, file):
                 app["rockstar"] = old_entry["rockstar"]
             if "data" in old_entry:
                 app["data"] = old_entry["data"]
-        old_data_dict[appid] = app
+        old_apps_dict[appid] = app
 
-    for app in old_data_dict.values():
+    for app in old_apps_dict.values():
         if "last_fetched" not in app:
             app["last_fetched"] = -1
         if "steam" not in app:
@@ -80,28 +93,36 @@ def update_general_data(new_games_chunk, file):
             app["data"] = []
 
     with open(file, "w", encoding="utf-8") as f:
-        json.dump(list(old_data_dict.values()), f, indent=4)
+        json.dump(list(old_apps_dict.values()), f, indent=4)
 
-def update_app_details(new_app_data, old_general_data, file):
-    old_data_dict = {entry["appid"]: entry for entry in old_general_data}
-    old_data_dict[new_app_data["appid"]] = new_app_data
+def update_app_details(app_details_data, main_data, file):
+    """
+    :param app_details_data:
+    :param main_data:
+    :param file:
+    :return:
+    """
 
-    updated_data = list(old_data_dict.values())
+    main_data_dict = {entry["appid"]: entry for entry in main_data}
+    main_data_dict[app_details_data["appid"]] = app_details_data
+    main_data_updated = list(main_data_dict.values())
 
     with open(file, "w", encoding="utf-8") as f:
-        json.dump(updated_data, f, indent=4)
+        json.dump(main_data_updated, f, indent=4)
 
-def fetch_general_and_steam_data():
+def fetch_main_data():
+    """
+    :return:
+    """
+
     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Started fetching Steam catalog")
     with open("credentials/steam_api_key.txt", 'r', encoding='utf-8') as f:
         steam_api_key = f.read().strip()
 
-    modified_since = 0 # Default
-    last_app_id = 0 # Default
-    max_results = 50000   # MAX 50k
+    modified_since = 0  # Default
+    last_app_id = 0     # Default
+    max_results = 50000 # MAX 50k
 
-    # Fetch apps and general data --------------------------------------------------------------------------------------
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetching apps general data...")
     while True:
         response_get_app_list = requests.get(f"https://api.steampowered.com/IStoreService/GetAppList/v1/?"
                                              f"key={steam_api_key}"
@@ -112,8 +133,8 @@ def fetch_general_and_steam_data():
 
         if response_get_app_list.status_code == 200:
             apps_chunk = response_get_app_list.json()["response"]["apps"]
-            update_general_data(apps_chunk, os.path.join(parent_path, "json_data", "data.json"))
-            print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetched {len(apps_chunk)} app ids...")
+            update_main_data(apps_chunk, os.path.join(parent_path, "json_data", "data.json"))
+            print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetched {len(apps_chunk)} app ids")
 
             if len(apps_chunk) < max_results:
                 print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Done fetching app ids")
@@ -123,20 +144,23 @@ def fetch_general_and_steam_data():
         else:
             print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|GetAppList request failed: {response_get_app_list.status_code}")
             break
+    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Ended fetching Steam catalog")
 
-    # Fetch detailed data from apps ------------------------------------------------------------------------------------
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetching apps details...")
-    with open(os.path.join(parent_path, 'json_data', 'data.json'), 'r', encoding='utf-8') as f:
-        steam_data = json.load(f)
-
+def fetch_apps_details():
     """
     Rate limits: 100.000reqs/day AND 200reqs/5min
-    
-    In the case of a 429 status code, the program can attempt to resend the request every 10 seconds until a 
-    successful response is received. For a 403 status code, the program should wait for 5 minutes to comply with 
+
+    In the case of a 429 status code, the program can attempt to resend the request every 10 seconds until a
+    successful response is received. For a 403 status code, the program should wait for 5 minutes to comply with
     the rate limit duration.
+
+    :return:
     """
-    for app in steam_data:
+    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Started fetching apps details")
+    with open(os.path.join(parent_path, 'json_data', 'data.json'), 'r', encoding='utf-8') as f:
+        main_data = json.load(f)
+
+    for app in main_data:
         appid = app["appid"]
         if app["last_fetched"] < app["last_modified"]:
             response_get_app_details = requests.get(f"https://store.steampowered.com/api/appdetails?appids={appid}")
@@ -149,27 +173,30 @@ def fetch_general_and_steam_data():
                     app["steam"]["price_in_cents"] = data["data"]["price_overview"]["final"]
                     app["steam"]["price_time"] = now
                     app["data"] = data["data"]
-                    update_app_details(app, steam_data, os.path.join(parent_path, "json_data", "data.json"))
-                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|{response_get_app_details.status_code}|Fetched app {appid}...")
+                    update_app_details(app, main_data, os.path.join(parent_path, "json_data", "data.json"))
+                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|{response_get_app_details.status_code}|Fetched details for app {appid}")
                 else:
-                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching app details {appid}: Success = False ")
+                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Success = False ")
             elif response_get_app_details.status_code == 429:
-                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching app details {appid}: Too many requests")
+                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Too many requests")
                 break
             elif response_get_app_details.status_code == 403:
-                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching app details {appid}: Forbidden")
+                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Forbidden")
                 break
             else:
-                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching app details {appid}: Unknown failure")
+                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Unknown error")
                 break
         else:
             print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Skipped app {appid}: Already up to date")
 
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Stopped fetching app details")
-    # ------------------------------------------------------------------------------------------------------------------
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Ended fetching Steam catalog")
+    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Ended fetching app details")
 
 def run_crawler(mode):
+    """
+    :param mode:
+    :return:
+    """
+
     command = [
         "scrapy",
         "crawl",
@@ -180,6 +207,8 @@ def run_crawler(mode):
 
 if __name__ == '__main__':
     initialize()
-    fetch_general_and_steam_data()
+    fetch_main_data()
+    fetch_apps_details()
 
+    # Next step: run crawlers to get the remaining stores prices
     #run_crawler("epic")

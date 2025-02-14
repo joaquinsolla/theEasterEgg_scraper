@@ -10,47 +10,79 @@ parent_path = './' # Default
 
 def initialize():
     folder = os.path.join(parent_path, "json_data")
-    steam_file = os.path.join(folder, "steam.json")
+    data_file = os.path.join(folder, "data.json")
 
     if not os.path.exists(folder):
         os.makedirs(folder)
         print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Created json_data folder")
 
-    if not os.path.exists(steam_file):
-        with open(steam_file, "w", encoding='utf-8') as f:
+    if not os.path.exists(data_file):
+        with open(data_file, "w", encoding='utf-8') as f:
             pass
-        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Created steam.json file")
+        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Created data.json file")
 
 def get_time():
     return int(time.time())
 
-def update_steam_general_data(new_data, file):
-    old_data = []
+def update_general_data(new_games_chunk, file):
+    old_games = []
+    default_store_json = {
+        "availability": False,
+        "price_in_cents": -1,
+        "price_time": -1
+    }
     if os.path.exists(file):
         if os.path.getsize(file) > 0:
             with open(file, "r", encoding="utf-8") as f:
-                old_data = json.load(f)
+                old_games = json.load(f)
 
-    old_data_dict = {entry["appid"]: entry for entry in old_data}
+    old_data_dict = {entry["appid"]: entry for entry in old_games}
 
-    for app in new_data:
+    for app in new_games_chunk:
         appid = app["appid"]
+        app.pop("price_change_number", None)
         if appid in old_data_dict:
             old_entry = old_data_dict[appid]
-            app["data"] = old_entry.get("data", [])
-            if "last_updated" in old_entry:
-                app["last_updated"] = old_entry["last_updated"]
-
+            if "last_fetched" in old_entry:
+                app["last_fetched"] = old_entry["last_fetched"]
+            if "steam" in old_entry:
+                app["steam"] = old_entry["steam"]
+            if "epic" in old_entry:
+                app["epic"] = old_entry["epic"]
+            if "ea" in old_entry:
+                app["ea"] = old_entry["ea"]
+            if "xbox" in old_entry:
+                app["xbox"] = old_entry["xbox"]
+            if "battle" in old_entry:
+                app["battle"] = old_entry["battle"]
+            if "rockstar" in old_entry:
+                app["rockstar"] = old_entry["rockstar"]
+            if "data" in old_entry:
+                app["data"] = old_entry["data"]
         old_data_dict[appid] = app
 
     for app in old_data_dict.values():
-        if "last_updated" not in app:
-            app["last_updated"] = 0
+        if "last_fetched" not in app:
+            app["last_fetched"] = -1
+        if "steam" not in app:
+            app["steam"] = default_store_json
+        if "epic" not in app:
+            app["epic"] = default_store_json
+        if "ea" not in app:
+            app["ea"] = default_store_json
+        if "xbox" not in app:
+            app["xbox"] = default_store_json
+        if "battle" not in app:
+            app["battle"] = default_store_json
+        if "rockstar" not in app:
+            app["rockstar"] = default_store_json
+        if "data" not in app:
+            app["data"] = []
 
     with open(file, "w", encoding="utf-8") as f:
         json.dump(list(old_data_dict.values()), f, indent=4)
 
-def update_steam_app_data(new_app_data, old_general_data, file):
+def update_app_details(new_app_data, old_general_data, file):
     old_data_dict = {entry["appid"]: entry for entry in old_general_data}
     old_data_dict[new_app_data["appid"]] = new_app_data
 
@@ -59,7 +91,7 @@ def update_steam_app_data(new_app_data, old_general_data, file):
     with open(file, "w", encoding="utf-8") as f:
         json.dump(updated_data, f, indent=4)
 
-def get_steam_data():
+def fetch_general_and_steam_data():
     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Started fetching Steam catalog")
     with open("credentials/steam_api_key.txt", 'r', encoding='utf-8') as f:
         steam_api_key = f.read().strip()
@@ -80,7 +112,7 @@ def get_steam_data():
 
         if response_get_app_list.status_code == 200:
             apps_chunk = response_get_app_list.json()["response"]["apps"]
-            update_steam_general_data(apps_chunk, os.path.join(parent_path, "json_data", "steam.json"))
+            update_general_data(apps_chunk, os.path.join(parent_path, "json_data", "data.json"))
             print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetched {len(apps_chunk)} app ids...")
 
             if len(apps_chunk) < max_results:
@@ -94,7 +126,7 @@ def get_steam_data():
 
     # Fetch detailed data from apps ------------------------------------------------------------------------------------
     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetching apps details...")
-    with open(os.path.join(parent_path, 'json_data', 'steam.json'), 'r', encoding='utf-8') as f:
+    with open(os.path.join(parent_path, 'json_data', 'data.json'), 'r', encoding='utf-8') as f:
         steam_data = json.load(f)
 
     """
@@ -106,14 +138,18 @@ def get_steam_data():
     """
     for app in steam_data:
         appid = app["appid"]
-        if app["last_updated"] < app["last_modified"]:
+        if app["last_fetched"] < app["last_modified"]:
             response_get_app_details = requests.get(f"https://store.steampowered.com/api/appdetails?appids={appid}")
             if response_get_app_details.status_code == 200:
                 data = response_get_app_details.json().get(str(appid), {})
                 if data.get("success"):
-                    app["last_updated"] = get_time()
+                    now = get_time()
+                    app["last_fetched"] = now
+                    app["steam"]["availability"] = True
+                    app["steam"]["price_in_cents"] = data["data"]["price_overview"]["final"]
+                    app["steam"]["price_time"] = now
                     app["data"] = data["data"]
-                    update_steam_app_data(app, steam_data, os.path.join(parent_path, "json_data", "steam.json"))
+                    update_app_details(app, steam_data, os.path.join(parent_path, "json_data", "data.json"))
                     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|{response_get_app_details.status_code}|Fetched app {appid}...")
                 else:
                     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching app details {appid}: Success = False ")
@@ -144,6 +180,6 @@ def run_crawler(mode):
 
 if __name__ == '__main__':
     initialize()
-    get_steam_data()
+    fetch_general_and_steam_data()
 
     #run_crawler("epic")

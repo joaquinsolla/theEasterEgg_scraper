@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 /credentials/
 .idea
+/json_data

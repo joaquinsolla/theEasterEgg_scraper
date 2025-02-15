@@ -137,7 +137,6 @@ def fetch_main_data():
             print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetched {len(apps_chunk)} app ids")
 
             if len(apps_chunk) < max_results:
-                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Done fetching app ids")
                 break
             else:
                 last_app_id = apps_chunk[-1]["appid"]
@@ -170,13 +169,16 @@ def fetch_apps_details():
                     now = get_time()
                     app["last_fetched"] = now
                     app["steam"]["availability"] = True
-                    app["steam"]["price_in_cents"] = data["data"]["price_overview"]["final"]
+                    if data["data"]["is_free"]:
+                        app["steam"]["price_in_cents"] = 0
+                    else:
+                        app["steam"]["price_in_cents"] = data["data"]["price_overview"]["final"]
                     app["steam"]["price_time"] = now
                     app["data"] = data["data"]
                     update_app_details(app, main_data, os.path.join(parent_path, "json_data", "data.json"))
                     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|{response_get_app_details.status_code}|Fetched details for app {appid}")
                 else:
-                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Success = False ")
+                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: 'success' = False ")
             elif response_get_app_details.status_code == 429:
                 print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Too many requests")
                 break
@@ -209,6 +211,8 @@ if __name__ == '__main__':
     initialize()
     fetch_main_data()
     fetch_apps_details()
+
+    # NOW: filter which json items we want to keep
 
     # Next step: run crawlers to get the remaining stores prices
     #run_crawler("epic")

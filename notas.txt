@@ -1,0 +1,14 @@
+screenshots
+          "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2933620/ss_08bf594c699b142e6e053064be8f8678e8b39877.600x338.jpg?t=1738088305",
+          "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2933620/ss_08bf594c699b142e6e053064be8f8678e8b39877.1920x1080.jpg?t=1738088305"
+
+movies
+          "id": 257092650,
+          "webm": {
+            "480": "http://video.akamai.steamstatic.com/store_trailers/257092650/movie480_vp9.webm?t=1738084055",
+            "max": "http://video.akamai.steamstatic.com/store_trailers/257092650/movie_max_vp9.webm?t=1738084055"
+          },
+          "mp4": {
+            "480": "http://video.akamai.steamstatic.com/store_trailers/257092650/movie480.mp4?t=1738084055",
+            "max": "http://video.akamai.steamstatic.com/store_trailers/257092650/movie_max.mp4?t=1738084055"
+          },

@@ -31,7 +31,47 @@ def get_time():
     """
     return int(time.time())
 
-def update_main_data(apps_chunk, file):
+def remove_undesired_app_details(data):
+    """
+    :param data:
+    :return:
+    """
+
+    data.pop("steam_appid", None)
+    data.pop("required_age", None)
+    data.pop("detailed_description", None)
+    data.pop("capsule_imagev5", None)
+    data.pop("ext_user_account_notice", None)
+    data.pop("price_overview", None)
+    data.pop("packages", None)
+    data.pop("package_groups", None)
+    data.pop("achievements", None)
+    data.pop("support_info", None)
+    data.pop("background", None)
+    data.pop("content_descriptors", None)
+
+    if "screenshots" in data:
+        data["screenshots"] = [s["path_full"] for s in data["screenshots"] if "path_full" in s]
+
+    if "movies" in data:
+        data["movies"] = data["movies"][-3:]
+        for movie in data["movies"]:
+            for key in ["name", "webm", "mp4", "highlight"]:
+                movie.pop(key, None)
+
+    if "ratings" in data:
+        pegi = data["ratings"].get("pegi", {})
+        data["pegi"] = {
+            "rating": pegi.get("rating", None),
+            "descriptors": pegi.get("descriptors", None)
+        }
+    else:
+        data["pegi"] = {"rating": None, "descriptors": None}
+    data.pop("ratings", None)
+
+    return data
+
+def write_main_data(apps_chunk, file):
     """
     :param apps_chunk:
     :param file:
@@ -95,7 +135,7 @@ def update_main_data(apps_chunk, file):
     with open(file, "w", encoding="utf-8") as f:
         json.dump(list(old_apps_dict.values()), f, indent=4)
 
-def update_app_details(app_details_data, main_data, file):
+def write_app_details(app_details_data, main_data, file):
     """
     :param app_details_data:
     :param main_data:
@@ -133,7 +173,7 @@ def fetch_main_data():
 
         if response_get_app_list.status_code == 200:
             apps_chunk = response_get_app_list.json()["response"]["apps"]
-            update_main_data(apps_chunk, os.path.join(parent_path, "json_data", "data.json"))
+            write_main_data(apps_chunk, os.path.join(parent_path, "json_data", "data.json"))
             print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetched {len(apps_chunk)} app ids")
 
             if len(apps_chunk) < max_results:
@@ -169,13 +209,10 @@ def fetch_apps_details():
                     now = get_time()
                     app["last_fetched"] = now
                     app["steam"]["availability"] = True
-                    if data["data"]["is_free"]:
-                        app["steam"]["price_in_cents"] = 0
-                    else:
-                        app["steam"]["price_in_cents"] = data["data"]["price_overview"]["final"]
+                    app["steam"]["price_in_cents"] = 0 if data["data"]["is_free"] else data["data"]["price_overview"]["final"]
                     app["steam"]["price_time"] = now
-                    app["data"] = data["data"]
-                    update_app_details(app, main_data, os.path.join(parent_path, "json_data", "data.json"))
+                    app["data"] = remove_undesired_app_details(data["data"])
+                    write_app_details(app, main_data, os.path.join(parent_path, "json_data", "data.json"))
                     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|{response_get_app_details.status_code}|Fetched details for app {appid}")
                 else:
                     print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: 'success' = False ")
@@ -212,7 +249,5 @@ if __name__ == '__main__':
     fetch_main_data()
     fetch_apps_details()
 
-    # NOW: filter which json items we want to keep
-
     # Next step: run crawlers to get the remaining stores prices
-    #run_crawler("epic")
+    # run_crawler("epic")

@@ -24,13 +24,21 @@ def initialize():
 
     if not os.path.exists(folder):
         os.makedirs(folder)
-        logger('INFO', f'Created {folder} folder')
+        logger('INFO', f'Created {folder}')
 
     for file in files:
         if not os.path.exists(file):
             with open(file, "w", encoding='utf-8') as f:
                 pass
-            logger('INFO', f'Created {file} file')
+            logger('INFO', f'Created {file}')
+
+def read_json(filename):
+    with open(os.path.join(parent_path, 'json_data', filename), 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def write_json(filename, data):
+    with open(os.path.join(parent_path, "json_data", filename), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
 
 def logger(status, message, html_code=None):
     if html_code:
@@ -131,8 +139,7 @@ def update_games_catalog(games):
         "rockstar": default_store_json,
     }
     if os.path.getsize(os.path.join(parent_path, "json_data", "games.json")) > 0:
-        with open(os.path.join(parent_path, "json_data", "games.json"), "r", encoding="utf-8") as f:
-            old_apps = json.load(f)
+        old_apps = read_json('games.json')
 
     old_apps_dict = {entry["appid"]: entry for entry in old_apps}
 
@@ -157,8 +164,7 @@ def update_games_catalog(games):
         if "data" not in app:
             app["data"] = []
 
-    with open(os.path.join(parent_path, "json_data", "games.json"), "w", encoding="utf-8") as f:
-        json.dump(list(old_apps_dict.values()), f, indent=4)
+    write_json('games.json', list(old_apps_dict.values()))
     logger('INFO', 'Ended updating games catalog')
 
 def update_games_details(games):
@@ -167,8 +173,7 @@ def update_games_details(games):
     :return:
     """
     logger('INFO', 'Started updating games details')
-    with open(os.path.join(parent_path, "json_data", "games.json"), "w", encoding="utf-8") as f:
-        json.dump(games, f, indent=4)
+    write_json('games.json', games)
     logger('INFO', 'Ended updating games details')
 
 def fetch_games_catalog():
@@ -216,8 +221,7 @@ def fetch_games_details():
     :return:
     """
     logger('INFO', 'Started fetching games details')
-    with open(os.path.join(parent_path, 'json_data', 'games.json'), 'r', encoding='utf-8') as f:
-        games = json.load(f)
+    games = read_json('games.json')
 
     try:
         for app in games:
@@ -285,6 +289,8 @@ if __name__ == '__main__':
     # TODO: CREATE CATEGORIES JSON
     # TODO: CREATE DEVELOPERS JSON
     # TODO: CREATE PUBLISHERS JSON
+
+    # TODO: CRITICS KEY AND REMOVE METCRITIC FROM DATA
 
     # Next step: run crawlers to get the remaining stores prices
     # run_crawler('epic')

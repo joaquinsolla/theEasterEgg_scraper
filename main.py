@@ -122,6 +122,14 @@ def update_games_catalog(games):
         "price_in_cents": -1,
         "price_time": -1
     }
+    stores = {
+        "steam": default_store_json,
+        "epic": default_store_json,
+        "ea": default_store_json,
+        "xbox": default_store_json,
+        "battle": default_store_json,
+        "rockstar": default_store_json,
+    }
     if os.path.getsize(os.path.join(parent_path, "json_data", "games.json")) > 0:
         with open(os.path.join(parent_path, "json_data", "games.json"), "r", encoding="utf-8") as f:
             old_apps = json.load(f)
@@ -135,18 +143,8 @@ def update_games_catalog(games):
             old_entry = old_apps_dict[appid]
             if "last_fetched" in old_entry:
                 app["last_fetched"] = old_entry["last_fetched"]
-            if "steam" in old_entry:
-                app["steam"] = old_entry["steam"]
-            if "epic" in old_entry:
-                app["epic"] = old_entry["epic"]
-            if "ea" in old_entry:
-                app["ea"] = old_entry["ea"]
-            if "xbox" in old_entry:
-                app["xbox"] = old_entry["xbox"]
-            if "battle" in old_entry:
-                app["battle"] = old_entry["battle"]
-            if "rockstar" in old_entry:
-                app["rockstar"] = old_entry["rockstar"]
+            if "stores" in old_entry:
+                app["stores"] = old_entry["stores"]
             if "data" in old_entry:
                 app["data"] = old_entry["data"]
         old_apps_dict[appid] = app
@@ -154,18 +152,8 @@ def update_games_catalog(games):
     for app in old_apps_dict.values():
         if "last_fetched" not in app:
             app["last_fetched"] = -1
-        if "steam" not in app:
-            app["steam"] = default_store_json
-        if "epic" not in app:
-            app["epic"] = default_store_json
-        if "ea" not in app:
-            app["ea"] = default_store_json
-        if "xbox" not in app:
-            app["xbox"] = default_store_json
-        if "battle" not in app:
-            app["battle"] = default_store_json
-        if "rockstar" not in app:
-            app["rockstar"] = default_store_json
+        if "stores" not in app:
+            app["stores"] = stores
         if "data" not in app:
             app["data"] = []
 
@@ -241,7 +229,7 @@ def fetch_games_details():
                     data = response_get_app_details.json().get(str(appid), {})
                     if data.get("success"):
                         app["last_fetched"] = get_time()
-                        app["steam"] = set_steam_data(data["data"])
+                        app["stores"]["steam"] = set_steam_data(data["data"])
                         app["data"] = remove_undesired_app_details(data["data"])
                         logger('INFO', f'Fetched details for app {appid}', response_get_app_details.status_code)
                     else:

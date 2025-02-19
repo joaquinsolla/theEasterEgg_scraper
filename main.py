@@ -18,12 +18,18 @@ def initialize():
 
     if not os.path.exists(folder):
         os.makedirs(folder)
-        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Created json_data folder")
+        logger('INFO', 'Created json_data folder')
 
     if not os.path.exists(data_file):
         with open(data_file, "w", encoding='utf-8') as f:
             pass
-        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Created data.json file")
+        logger('INFO', 'Created data.json file')
+
+def logger(status, message, html_code=None):
+    if html_code:
+        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|{html_code}|{status}|{message}")
+    else:
+        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|{status}|{message}")
 
 def get_time():
     """
@@ -142,7 +148,6 @@ def write_app_details(app_details_data, main_data, file):
     :param file:
     :return:
     """
-
     main_data_dict = {entry["appid"]: entry for entry in main_data}
     main_data_dict[app_details_data["appid"]] = app_details_data
     main_data_updated = list(main_data_dict.values())
@@ -154,8 +159,7 @@ def fetch_main_data():
     """
     :return:
     """
-
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Started fetching Steam catalog")
+    logger('INFO','Started fetching Steam catalog')
     with open("credentials/steam_api_key.txt", 'r', encoding='utf-8') as f:
         steam_api_key = f.read().strip()
 
@@ -174,16 +178,16 @@ def fetch_main_data():
         if response_get_app_list.status_code == 200:
             apps_chunk = response_get_app_list.json()["response"]["apps"]
             write_main_data(apps_chunk, os.path.join(parent_path, "json_data", "data.json"))
-            print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Fetched {len(apps_chunk)} app ids")
+            logger('INFO', f'Fetched {len(apps_chunk)} app ids')
 
             if len(apps_chunk) < max_results:
                 break
             else:
                 last_app_id = apps_chunk[-1]["appid"]
         else:
-            print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|GetAppList request failed: {response_get_app_list.status_code}")
+            logger('ERROR', f'GetAppList request failed: {response_get_app_list.status_code}')
             break
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Ended fetching Steam catalog")
+    logger('INFO', 'Ended fetching Steam catalog')
 
 def fetch_apps_details():
     """
@@ -195,7 +199,7 @@ def fetch_apps_details():
 
     :return:
     """
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Started fetching apps details")
+    logger('INFO', 'Started fetching apps details')
     with open(os.path.join(parent_path, 'json_data', 'data.json'), 'r', encoding='utf-8') as f:
         main_data = json.load(f)
 
@@ -213,22 +217,21 @@ def fetch_apps_details():
                     app["steam"]["price_time"] = now
                     app["data"] = remove_undesired_app_details(data["data"])
                     write_app_details(app, main_data, os.path.join(parent_path, "json_data", "data.json"))
-                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|{response_get_app_details.status_code}|Fetched details for app {appid}")
+                    logger('INFO', f'Fetched details for app {appid}', response_get_app_details.status_code)
                 else:
-                    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: 'success' = False ")
+                    logger('ERROR', f"Error fetching details for app {appid}: 'success' = False", response_get_app_details.status_code)
             elif response_get_app_details.status_code == 429:
-                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Too many requests")
+                logger('ERROR', f'Error fetching details for app {appid}: Too many requests', response_get_app_details.status_code)
                 break
             elif response_get_app_details.status_code == 403:
-                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Forbidden")
+                logger('ERROR', f'Error fetching details for app {appid}: Forbidden', response_get_app_details.status_code)
                 break
             else:
-                print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|ERROR|{response_get_app_details.status_code}|Error fetching details for app {appid}: Unknown error")
+                logger('ERROR', f'Error fetching details for app {appid}: Unknown error', response_get_app_details.status_code)
                 break
         else:
-            print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Skipped app {appid}: Already up to date")
-
-    print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|INFO|Ended fetching app details")
+            logger('INFO', f'Skipped app {appid}: Already up to date')
+    logger('INFO', 'Ended fetching app details')
 
 def run_crawler(mode):
     """
@@ -248,6 +251,12 @@ if __name__ == '__main__':
     initialize()
     fetch_main_data()
     fetch_apps_details()
+
+    # TODO: WRITE DETAILS WHEN FINISHED EXECUTION
+    # TODO: CREATE GENRES JSON
+    # TODO: CREATE CATEGORIES JSON
+    # TODO: CREATE DEVELOPERS JSON
+    # TODO: CREATE PUBLISHERS JSON
 
     # Next step: run crawlers to get the remaining stores prices
     # run_crawler("epic")

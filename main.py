@@ -33,8 +33,20 @@ def initialize():
             logger('INFO', f'Created {file}')
 
 def read_json(filename):
-    with open(os.path.join(parent_path, 'json_data', filename), 'r', encoding='utf-8') as f:
-        return json.load(f)
+    file_path = os.path.join(parent_path, 'json_data', filename)
+
+    if not os.path.exists(file_path):
+        return []
+
+    if os.path.getsize(file_path) == 0:
+        return []
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        logger(f'ERROR', f'Cannot read file {filename}')
+        return []
 
 def write_json(filename, data):
     with open(os.path.join(parent_path, "json_data", filename), "w", encoding="utf-8") as f:
@@ -167,15 +179,6 @@ def update_games_catalog(games):
     write_json('games.json', list(old_apps_dict.values()))
     logger('INFO', 'Ended updating games catalog')
 
-def update_games_details(games):
-    """
-    :param games:
-    :return:
-    """
-    logger('INFO', 'Started updating games details')
-    write_json('games.json', games)
-    logger('INFO', 'Ended updating games details')
-
 def fetch_games_catalog():
     """
     :return:
@@ -222,6 +225,10 @@ def fetch_games_details():
     """
     logger('INFO', 'Started fetching games details')
     games = read_json('games.json')
+    genres = read_json('genres.json')
+    categories = read_json('categories.json')
+    developers = read_json('developers.json')
+    publishers = read_json('publishers.json')
 
     try:
         for app in games:
@@ -232,10 +239,19 @@ def fetch_games_details():
                 if response_get_app_details.status_code == 200:
                     data = response_get_app_details.json().get(str(appid), {})
                     if data.get("success"):
+                        # Games
                         app["last_fetched"] = get_time()
                         app["stores"]["steam"] = set_steam_data(data["data"])
                         app["data"] = remove_undesired_app_details(data["data"])
                         logger('INFO', f'Fetched details for app {appid}', response_get_app_details.status_code)
+                        # Genres
+                        genres.extend(item for item in app["data"]["genres"] if item not in genres)
+                        # Categories
+                        categories.extend(item for item in app["data"]["categories"] if item not in categories)
+                        # Developers
+                        developers.extend(item for item in app["data"]["developers"] if item not in developers)
+                        # Publishers
+                        publishers.extend(item for item in app["data"]["publishers"] if item not in publishers)
                     else:
                         logger('INFO', f'Cannot fetch details for app {appid}: Not available', response_get_app_details.status_code)
 
@@ -259,7 +275,14 @@ def fetch_games_details():
         logger('ERROR', traceback.format_exc(), f'appid={appid}')
 
     logger('INFO', 'Ended fetching games details')
-    update_games_details(games)
+
+    logger('INFO', 'Started updating JSON files')
+    write_json('games.json', games)
+    write_json('genres.json', genres)
+    write_json('categories.json', categories)
+    write_json('developers.json', developers)
+    write_json('publishers.json', publishers)
+    logger('INFO', 'Ended updating JSON files')
 
 def run_crawler(mode):
     """
@@ -283,12 +306,6 @@ if __name__ == '__main__':
     except:
         logger('ERROR', traceback.format_exc())
 
-
-
-    # TODO: CREATE GENRES JSON
-    # TODO: CREATE CATEGORIES JSON
-    # TODO: CREATE DEVELOPERS JSON
-    # TODO: CREATE PUBLISHERS JSON
 
     # TODO: CRITICS KEY AND REMOVE METCRITIC FROM DATA
 

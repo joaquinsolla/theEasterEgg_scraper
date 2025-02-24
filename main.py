@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import traceback
 import requests
@@ -64,7 +65,13 @@ def get_time():
     """
     return int(time.time())
 
-def set_steam_data(data):
+def get_url_name(name):
+    name = name.strip().lower()
+    name = re.sub(r'[^a-z0-9 ]', '', name)
+    name = name.replace(' ', '-')
+    return name
+
+def get_steam_data(data):
     availability = False
     price_in_cents = -1
     price_time = get_time()
@@ -82,12 +89,29 @@ def set_steam_data(data):
         "price_time": price_time
     }
 
-def remove_undesired_app_details(data):
+def get_metacritic_data(data):
+    metacritic = {
+        "scale": -1,
+        "score": -1,
+        "url": None,
+        "last_fetched": -1
+    }
+
+    if "metacritic" in data and data["metacritic"]:
+        metacritic = {
+            "scale": 100,
+            "score": data["metacritic"]["score"] if "score" in data["metacritic"] else -1,
+            "url": data["metacritic"]["url"] if "url" in data["metacritic"] else None,
+            "last_fetched": get_time()
+        }
+
+    return metacritic
+
+def clean_app_details(data):
     """
     :param data:
     :return:
     """
-
     data.pop("steam_appid", None)
     data.pop("required_age", None)
     data.pop("detailed_description", None)
@@ -100,12 +124,27 @@ def remove_undesired_app_details(data):
     data.pop("support_info", None)
     data.pop("background", None)
     data.pop("content_descriptors", None)
+    data.pop("metacritic", None)
+    data.pop("controller_support", None)
+    data.pop("dlc", None)
+    data.pop("reviews", None)
 
+    if "developers" not in data:
+        data["developers"] = []
+    if "publishers" not in data:
+        data["publishers"] = []
+    if "genres" not in data:
+        data["genres"] = []
+    if "categories" not in data:
+        data["categories"] = []
+
+    # Screenshot
     if "screenshots" in data and data["screenshots"]:
         data["screenshots"] = [s["path_full"] for s in data["screenshots"] if "path_full" in s]
     else:
         data["screenshots"] = []
 
+    # Movies
     if "movies" in data and data["movies"]:
         data["movies"] = data["movies"][-3:]
         for movie in data["movies"]:
@@ -114,6 +153,7 @@ def remove_undesired_app_details(data):
     else:
         data["movies"] = []
 
+    # Ratings
     if "ratings" in data and data["ratings"]:
         if "pegi" in data["ratings"] and data["ratings"]["pegi"]:
             pegi = data["ratings"].get("pegi", {})
@@ -150,6 +190,16 @@ def update_games_catalog(games):
         "battle": default_store_json,
         "rockstar": default_store_json,
     }
+    default_critic_json = {
+        "scale": -1,
+        "score": -1,
+        "url": None,
+        "last_fetched": -1
+    }
+    critics = {
+        "metacritic": default_critic_json,
+        "opencritic": default_critic_json,
+    }
     if os.path.getsize(os.path.join(parent_path, "json_data", "games.json")) > 0:
         old_apps = read_json('games.json')
 
@@ -162,8 +212,12 @@ def update_games_catalog(games):
             old_entry = old_apps_dict[appid]
             if "last_fetched" in old_entry:
                 app["last_fetched"] = old_entry["last_fetched"]
+            if "url_name" in old_entry:
+                app["url_name"] = old_entry["url_name"]
             if "stores" in old_entry:
                 app["stores"] = old_entry["stores"]
+            if "critics" in old_entry:
+                app["critics"] = old_entry["critics"]
             if "data" in old_entry:
                 app["data"] = old_entry["data"]
         old_apps_dict[appid] = app
@@ -171,8 +225,12 @@ def update_games_catalog(games):
     for app in old_apps_dict.values():
         if "last_fetched" not in app:
             app["last_fetched"] = -1
+        if "url_name" not in app:
+            app["url_name"] = get_url_name(app["name"])
         if "stores" not in app:
             app["stores"] = stores
+        if "critics" not in app:
+            app["critics"] = critics
         if "data" not in app:
             app["data"] = []
 
@@ -213,6 +271,34 @@ def fetch_games_catalog():
             break
     logger('INFO', 'Ended fetching Steam catalog')
 
+def fetch_games_catalog_by_ids(ids_list):
+    """
+    FOR TEST PURPOSES
+    :return:
+    """
+    logger('INFO','Started fetching Steam catalog')
+    with open("credentials/steam_api_key.txt", 'r', encoding='utf-8') as f:
+        steam_api_key = f.read().strip()
+
+    apps = []
+    for game_id in ids_list:
+        response_get_app_list = requests.get(f"https://api.steampowered.com/IStoreService/GetAppList/v1/?"
+                                             f"key={steam_api_key}"
+                                             f"&include_games=true"
+                                             f"&last_appid={game_id - 1}"
+                                             f"&max_results={1}")
+
+        if response_get_app_list.status_code == 200:
+            apps_chunk = response_get_app_list.json()["response"]["apps"]
+            apps.extend(apps_chunk)
+            if len(apps) >= len(ids_list):
+                update_games_catalog(apps)
+                break
+        else:
+            logger('ERROR', f'GetAppList request failed: {response_get_app_list.status_code}')
+            break
+    logger('INFO', 'Ended fetching Steam catalog')
+
 def fetch_games_details():
     """
     Rate limits: 100.000reqs/day AND 200reqs/5min
@@ -241,17 +327,22 @@ def fetch_games_details():
                     if data.get("success"):
                         # Games
                         app["last_fetched"] = get_time()
-                        app["stores"]["steam"] = set_steam_data(data["data"])
-                        app["data"] = remove_undesired_app_details(data["data"])
+                        app["stores"]["steam"] = get_steam_data(data["data"])
+                        app["critics"]["metacritic"] = get_metacritic_data(data["data"])
+                        app["data"] = clean_app_details(data["data"])
                         logger('INFO', f'Fetched details for app {appid}', response_get_app_details.status_code)
                         # Genres
-                        genres.extend(item for item in app["data"]["genres"] if item not in genres)
+                        if "genres" in app["data"]:
+                            genres.extend(item for item in app["data"]["genres"] if item not in genres)
                         # Categories
-                        categories.extend(item for item in app["data"]["categories"] if item not in categories)
+                        if "categories" in app["data"]:
+                            categories.extend(item for item in app["data"]["categories"] if item not in categories)
                         # Developers
-                        developers.extend(item for item in app["data"]["developers"] if item not in developers)
+                        if "developers" in app["data"]:
+                            developers.extend(item for item in app["data"]["developers"] if item not in developers)
                         # Publishers
-                        publishers.extend(item for item in app["data"]["publishers"] if item not in publishers)
+                        if "publishers" in app["data"]:
+                            publishers.extend(item for item in app["data"]["publishers"] if item not in publishers)
                     else:
                         logger('INFO', f'Cannot fetch details for app {appid}: Not available', response_get_app_details.status_code)
 
@@ -302,12 +393,10 @@ if __name__ == '__main__':
     try:
         initialize()
         fetch_games_catalog()
+        # fetch_games_catalog_by_ids([10, 311210, 1174180, 377160]) # TEST
         fetch_games_details()
     except:
         logger('ERROR', traceback.format_exc())
-
-
-    # TODO: CRITICS KEY AND REMOVE METCRITIC FROM DATA
 
     # Next step: run crawlers to get the remaining stores prices
     # run_crawler('epic')

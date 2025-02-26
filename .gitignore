@@ -161,3 +161,4 @@ cython_debug/
 /credentials/
 .idea
 /json_data
+/xml_sitemaps

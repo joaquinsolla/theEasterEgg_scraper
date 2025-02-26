@@ -3,9 +3,11 @@ import os
 import re
 import subprocess
 import traceback
+
 import requests
 import time
 from datetime import datetime
+from epicstore_api import EpicGamesStoreAPI
 
 parent_path = './' # Default
 #parent_path = '/home/raspy/Desktop/theEasterEgg_scraper/' # Crontab
@@ -14,18 +16,31 @@ def initialize():
     """
     Creates the needed set of folders and files for the execution.
     """
-    folder = os.path.join(parent_path, "json_data")
-    files = [
-        os.path.join(folder, "games.json"),
-        os.path.join(folder, "genres.json"),
-        os.path.join(folder, "categories.json"),
-        os.path.join(folder, "developers.json"),
-        os.path.join(folder, "publishers.json"),
+    json_data_folder = os.path.join(parent_path, "json_data")
+    xml_sitemaps_folder = os.path.join(parent_path, "xml_sitemaps")
+    folders = [
+        json_data_folder,
+        xml_sitemaps_folder
     ]
 
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-        logger('INFO', f'Created {folder}')
+    for folder in folders:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+            logger('INFO', f'Created {folder}')
+
+    files = [
+        os.path.join(json_data_folder, "games.json"),
+        os.path.join(json_data_folder, "genres.json"),
+        os.path.join(json_data_folder, "categories.json"),
+        os.path.join(json_data_folder, "developers.json"),
+        os.path.join(json_data_folder, "publishers.json"),
+        os.path.join(json_data_folder, "epic_catalog.json"),
+        os.path.join(xml_sitemaps_folder, "epic.xml"),
+        os.path.join(xml_sitemaps_folder, "ea.xml"),
+        os.path.join(xml_sitemaps_folder, "xbox.xml"),
+        os.path.join(xml_sitemaps_folder, "battle.xml"),
+        os.path.join(xml_sitemaps_folder, "rockstar.xml"),
+    ]
 
     for file in files:
         if not os.path.exists(file):
@@ -55,7 +70,7 @@ def write_json(filename, data):
 
 def logger(status, message, html_code=None):
     if html_code:
-        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|{html_code}|{status}|{message}")
+        print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|{status}|{html_code}|{message}")
     else:
         print(f"|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}|{status}|{message}")
 
@@ -237,7 +252,7 @@ def update_games_catalog(games):
     write_json('games.json', list(old_apps_dict.values()))
     logger('INFO', 'Ended updating games catalog')
 
-def fetch_games_catalog():
+def fetch_steam_catalog():
     """
     :return:
     """
@@ -271,7 +286,7 @@ def fetch_games_catalog():
             break
     logger('INFO', 'Ended fetching Steam catalog')
 
-def fetch_games_catalog_by_ids(ids_list):
+def fetch_steam_catalog_by_ids(ids_list):
     """
     FOR TEST PURPOSES
     :return:
@@ -299,7 +314,7 @@ def fetch_games_catalog_by_ids(ids_list):
             break
     logger('INFO', 'Ended fetching Steam catalog')
 
-def fetch_games_details():
+def fetch_steam_details():
     """
     Rate limits: 100.000reqs/day AND 200reqs/5min
 
@@ -375,12 +390,82 @@ def fetch_games_details():
     write_json('publishers.json', publishers)
     logger('INFO', 'Ended updating JSON files')
 
+def fetch_epic_catalog():
+    logger('INFO', 'Started fetching Epic Games catalog')
+
+    games = read_json('games.json')
+    url_names = []
+    for game in games:
+        url_names.append(game["url_name"])
+
+    api = EpicGamesStoreAPI(locale='es-ES', country='ES')
+    epic_catalog = []
+    coincidences = []
+    start = 0
+    items_per_request = 1000
+
+    try:
+        while True:
+            response = api.fetch_store_games(count=items_per_request, start=start, allow_countries='ES', with_price=True)
+            if "data" in response and "Catalog" in response["data"] and "searchStore" in response["data"]["Catalog"] and "elements" in response["data"]["Catalog"]["searchStore"]:
+                games_chunk = response["data"]["Catalog"]["searchStore"]["elements"]
+                epic_catalog.extend(games_chunk)
+                start += items_per_request
+                if len(games_chunk) < items_per_request:
+                    break
+            else:
+                break
+        logger('INFO', 'Ended fetching Epic Games catalog')
+
+    except:
+        logger('ERROR', traceback.format_exc())
+
+    try:
+        logger('INFO', 'Searching for coincidences between Steam and Epic catalogs')
+        for game in epic_catalog:
+            if "title" in game and game["title"] is not None:
+                if "productSlug" in game and game["productSlug"] is not None:
+                    if "price" in game and game["price"] is not None:
+                        if "totalPrice" in game["price"] and game["price"]["totalPrice"] is not None:
+                            if "discountPrice" in game["price"]["totalPrice"] and game["price"]["totalPrice"]["discountPrice"] is not None:
+                                if game["productSlug"] in url_names:
+                                    coincidences.append({
+                                        "url_name": game["productSlug"],
+                                        "price_in_cents": game["price"]["totalPrice"]["discountPrice"],
+                                    })
+                                elif get_url_name(game["title"]) in url_names:
+                                    coincidences.append({
+                                        "url_name": get_url_name(game["title"]),
+                                        "price_in_cents": game["price"]["totalPrice"]["discountPrice"],
+                                    })
+
+        coincidences_dict = {coincidence["url_name"]: coincidence["price_in_cents"] for coincidence in coincidences}
+
+        logger('INFO', f'{len(coincidences_dict)} coincidences found')
+        logger('INFO', 'Started updating JSON files')
+
+        for game in games:
+            if game["url_name"] in coincidences_dict:
+                game["stores"]["epic"]["availability"] = True
+                game["stores"]["epic"]["price_in_cents"] = coincidences_dict[game["url_name"]]
+                game["stores"]["epic"]["price_time"] = get_time()
+            else:
+                game["stores"]["epic"]["availability"] = False
+                game["stores"]["epic"]["price_in_cents"] = -1
+                game["stores"]["epic"]["price_time"] = get_time()
+
+        write_json('epic_catalog.json', epic_catalog)
+        if len(coincidences) > 0:
+            write_json('games.json', games)
+        logger('INFO', 'Ended updating JSON files')
+    except:
+        logger('ERROR', traceback.format_exc())
+
 def run_crawler(mode):
     """
     :param mode:
     :return:
     """
-
     command = [
         "scrapy",
         "crawl",
@@ -392,11 +477,12 @@ def run_crawler(mode):
 if __name__ == '__main__':
     try:
         initialize()
-        fetch_games_catalog()
-        # fetch_games_catalog_by_ids([10, 311210, 1174180, 377160]) # TEST
-        fetch_games_details()
+        # fetch_steam_catalog()
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520]) # TEST
+        fetch_steam_details()
+        fetch_epic_catalog()
+
+        # TODO: revisar si un juego deja de estar disponible en steam ????
+
     except:
         logger('ERROR', traceback.format_exc())
-
-    # Next step: run crawlers to get the remaining stores prices
-    # run_crawler('epic')

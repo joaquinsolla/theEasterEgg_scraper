@@ -3,11 +3,13 @@ import os
 import re
 import subprocess
 import traceback
-
 import requests
 import time
+import gzip
+import shutil
 from datetime import datetime
 from epicstore_api import EpicGamesStoreAPI
+import xml.etree.ElementTree as ET
 
 parent_path = './' # Default
 #parent_path = '/home/raspy/Desktop/theEasterEgg_scraper/' # Crontab
@@ -18,9 +20,14 @@ def initialize():
     """
     json_data_folder = os.path.join(parent_path, "json_data")
     xml_sitemaps_folder = os.path.join(parent_path, "xml_sitemaps")
+    xbox_sitemaps_folder = os.path.join(parent_path, "xml_sitemaps", "xbox")
+    json_temp_folder = os.path.join(parent_path, "json_data", "temp")
+
     folders = [
         json_data_folder,
-        xml_sitemaps_folder
+        xml_sitemaps_folder,
+        xbox_sitemaps_folder,
+        json_temp_folder
     ]
 
     for folder in folders:
@@ -29,17 +36,18 @@ def initialize():
             logger('INFO', f'Created {folder}')
 
     files = [
+        os.path.join(json_data_folder, "fetch_info.json"),
         os.path.join(json_data_folder, "games.json"),
         os.path.join(json_data_folder, "genres.json"),
         os.path.join(json_data_folder, "categories.json"),
         os.path.join(json_data_folder, "developers.json"),
         os.path.join(json_data_folder, "publishers.json"),
         os.path.join(json_data_folder, "epic_catalog.json"),
-        os.path.join(xml_sitemaps_folder, "epic.xml"),
-        os.path.join(xml_sitemaps_folder, "ea.xml"),
+        os.path.join(json_data_folder, "xbox_catalog.json"),
         os.path.join(xml_sitemaps_folder, "xbox.xml"),
         os.path.join(xml_sitemaps_folder, "battle.xml"),
         os.path.join(xml_sitemaps_folder, "rockstar.xml"),
+        os.path.join(json_temp_folder, "xbox_coincidences.json")
     ]
 
     for file in files:
@@ -47,6 +55,14 @@ def initialize():
             with open(file, "w", encoding='utf-8') as f:
                 pass
             logger('INFO', f'Created {file}')
+
+    logger('INFO', 'Initialization done')
+
+def finalize():
+    info = {
+        "last_fetch": get_time(),
+    }
+    write_json("fetching_info.json", info)
 
 def read_json(filename):
     file_path = os.path.join(parent_path, 'json_data', filename)
@@ -79,6 +95,12 @@ def get_time():
     :return:
     """
     return int(time.time())
+
+def iso_time_to_unix_time(timestamp: str) -> int:
+    """
+    Convierte una fecha en formato ISO 8601 (UTC) a UNIX timestamp.
+    """
+    return int(datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").timestamp())
 
 def get_url_name(name):
     name = name.strip().lower()
@@ -200,7 +222,6 @@ def update_games_catalog(games):
     stores = {
         "steam": default_store_json,
         "epic": default_store_json,
-        "ea": default_store_json,
         "xbox": default_store_json,
         "battle": default_store_json,
         "rockstar": default_store_json,
@@ -251,6 +272,115 @@ def update_games_catalog(games):
 
     write_json('games.json', list(old_apps_dict.values()))
     logger('INFO', 'Ended updating games catalog')
+
+def process_xbox_sitemaps():
+    try:
+        download_xml_sitemap('https://www.xbox.com/sitemap.xml', 'xbox.xml')
+
+        with open(os.path.join(parent_path, "xml_sitemaps", 'xbox.xml'), "r", encoding="utf-8") as file:
+            xml_data = file.read()
+
+        namespace = {"ns": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+        root = ET.fromstring(xml_data)
+
+        sitemaps = [
+            {
+                "loc": sm.find("ns:loc", namespace).text,
+                "lastmod": iso_time_to_unix_time(sm.find("ns:lastmod", namespace).text)
+            }
+            for sm in root.findall("ns:sitemap", namespace)
+            if "es-ES" in sm.find("ns:loc", namespace).text and "xcloud" not in sm.find("ns:loc", namespace).text
+        ]
+
+        fetch_info = read_json('fetch_info.json')
+
+        x = 0
+        compressed_files = []
+        for sitemap in sitemaps:
+            if not fetch_info or (fetch_info and "last_fetch" in fetch_info and sitemap["lastmod"] > fetch_info["last_fetch"]):
+
+                url = sitemap["loc"]
+
+                output_folder = os.path.join(parent_path, "xml_sitemaps", "xbox")
+                compressed_file = os.path.join(output_folder, f"xbox-compressed-{x}.gz")
+                decompressed_file = os.path.join(output_folder, f"xbox-{x}.xml")
+
+                response = requests.get(url, stream=True)
+                if response.status_code == 200:
+                    with open(compressed_file, "wb") as file:
+                        shutil.copyfileobj(response.raw, file)
+                    compressed_files.append(compressed_file)
+                    logger('INFO', f'Downloaded {compressed_file}', 200)
+                else:
+                    logger('ERROR', f'Cannot download {compressed_file}', response.status_code)
+                    exit()
+
+                with gzip.open(compressed_file, "rb") as f_in:
+                    with open(decompressed_file, "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+            x += 1
+
+        for file in compressed_files:
+            os.remove(file)
+
+    except:
+        logger('ERROR', traceback.format_exc())
+
+def run_crawler(mode):
+    """
+    :param mode:
+    :return:
+    """
+    command = [
+        "scrapy",
+        "crawl",
+        "no-scraper",
+        "-a", "mode=" + mode,
+    ]
+    subprocess.run(command)
+
+def download_xml_sitemap(xml_url, filename):
+    response = requests.get(xml_url)
+
+    if response.status_code == 200:
+        with open(os.path.join(parent_path, 'xml_sitemaps', filename), 'wb') as file:
+            file.write(response.content)
+        logger('INFO', f"Downloaded {filename}", 200)
+    else:
+        logger('ERROR', f"Cannot download {filename}", response.status_code)
+
+def build_xbox_catalog():
+    logger('INFO', "Started updating Xbox catalog")
+
+    xbox_path = os.path.join(parent_path, "xml_sitemaps", "xbox")
+    catalog = []
+
+    try:
+        for filename in os.listdir(xbox_path):
+            if filename.endswith('.xml'):
+                file_path = os.path.join(xbox_path, filename)
+
+                tree = ET.parse(file_path)
+                root = tree.getroot()
+
+                for url in root.findall('ns:url', namespaces={"ns": "http://www.sitemaps.org/schemas/sitemap/0.9"}):
+                    loc = url.find('ns:loc', namespaces={"ns": "http://www.sitemaps.org/schemas/sitemap/0.9"}).text
+                    lastmod = url.find('ns:lastmod', namespaces={"ns": "http://www.sitemaps.org/schemas/sitemap/0.9"}).text
+
+                    catalog.append({
+                        'url': loc,
+                        'lastmod': lastmod,
+                        'url_name': loc.split("store/")[1].split("/")[0],
+                        'price_in_cents': -1,
+                        'price_time': -1
+                    })
+
+        write_json('xbox_catalog.json' ,catalog)
+        logger('INFO', "Ended updating Xbox catalog")
+    except:
+        logger('ERROR', traceback.format_exc())
+
+    return catalog
 
 def fetch_steam_catalog():
     """
@@ -461,28 +591,70 @@ def fetch_epic_catalog():
     except:
         logger('ERROR', traceback.format_exc())
 
-def run_crawler(mode):
+def fetch_xbox_catalog():
     """
-    :param mode:
     :return:
     """
-    command = [
-        "scrapy",
-        "crawl",
-        "no-scraper",
-        "-a", "mode=" + mode,
-    ]
-    subprocess.run(command)
+    process_xbox_sitemaps()
+    xbox_catalog = build_xbox_catalog()
+
+    games = read_json('games.json')
+    url_names = []
+    for game in games:
+        url_names.append(game["url_name"])
+
+    coincidences = []
+
+    logger('INFO', 'Searching for coincidences between Steam and Xbox catalogs')
+
+    for game in xbox_catalog:
+        if game["url_name"] in url_names:
+            coincidences.append(game)
+
+    logger('INFO', f'{len(coincidences)} coincidences found')
+
+    write_json(os.path.join("temp", "xbox_coincidences.json"), coincidences)
+
+    logger('INFO', 'Started crawling Xbox prices')
+    try:
+        run_crawler('xbox')
+    except:
+        logger('ERROR', traceback.format_exc())
+    logger('INFO', 'Ended crawling Xbox prices')
+
+    logger('INFO', 'Started updating Xbox prices')
+    xbox_coincidences = read_json(os.path.join("temp", "xbox_coincidences.json"))
+    xbox_coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in xbox_coincidences}
+
+    for game in games:
+        if game["url_name"] in xbox_coincidences_dict:
+            if xbox_coincidences_dict[game["url_name"]]["price_in_cents"] != -1:
+                game["stores"]["xbox"]["availability"] = True
+                game["stores"]["xbox"]["price_in_cents"] = xbox_coincidences_dict[game["url_name"]]["price_in_cents"]
+                game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
+            else:
+                game["stores"]["xbox"]["availability"] = False
+                game["stores"]["xbox"]["price_in_cents"] = -1
+                game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
+        else:
+            game["stores"]["xbox"]["availability"] = False
+            game["stores"]["xbox"]["price_in_cents"] = -1
+            game["stores"]["xbox"]["price_time"] = get_time()
+
+    if len(xbox_coincidences_dict) > 0:
+        write_json('games.json', games)
+
+    logger('INFO', 'Ended updating Xbox prices')
+
 
 if __name__ == '__main__':
     try:
         initialize()
-        # fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520]) # TEST
+        fetch_steam_catalog()
+        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520]) # TEST
         fetch_steam_details()
         fetch_epic_catalog()
-
-        # TODO: revisar si un juego deja de estar disponible en steam ????
+        fetch_xbox_catalog()
 
     except:
         logger('ERROR', traceback.format_exc())

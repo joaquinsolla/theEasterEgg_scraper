@@ -42,8 +42,6 @@ def initialize():
         os.path.join(json_data_folder, "categories.json"),
         os.path.join(json_data_folder, "developers.json"),
         os.path.join(json_data_folder, "publishers.json"),
-        os.path.join(json_data_folder, "epic_catalog.json"),
-        os.path.join(json_data_folder, "xbox_catalog.json"),
         os.path.join(xml_sitemaps_folder, "xbox.xml"),
         os.path.join(xml_sitemaps_folder, "battle.xml"),
         os.path.join(xml_sitemaps_folder, "rockstar.xml"),
@@ -326,6 +324,36 @@ def process_xbox_sitemaps():
     except:
         logger('ERROR', traceback.format_exc())
 
+def process_battle_sitemaps():
+    urls = []
+
+    try:
+        with open(os.path.join(parent_path, "xml_sitemaps", 'battle.xml'), "r", encoding="utf-8") as file:
+            xml_data = file.read()
+
+        root = ET.fromstring(xml_data)
+
+        namespace = {
+            'sitemap': 'http://www.sitemaps.org/schemas/sitemap/0.9',
+            'xhtml': 'http://www.w3.org/1999/xhtml'
+        }
+
+        for url in root.findall('sitemap:url', namespace):
+            loc_tag = url.find('sitemap:loc', namespace)
+            if loc_tag is None:
+                continue
+
+            loc = loc_tag.text
+            if '/product/' in loc:
+                for link in url.findall('xhtml:link', namespace):
+                    if link.attrib.get('hreflang') == 'es-es':
+                        urls.append(link.attrib.get('href').replace("us.shop", "eu.shop"))
+                        break
+    except:
+        logger('ERROR', traceback.format_exc())
+
+    return urls
+
 def run_crawler(mode):
     """
     :param mode:
@@ -375,7 +403,6 @@ def build_xbox_catalog():
                         'price_time': -1
                     })
 
-        write_json('xbox_catalog.json' ,catalog)
         logger('INFO', "Ended updating Xbox catalog")
     except:
         logger('ERROR', traceback.format_exc())
@@ -584,7 +611,6 @@ def fetch_epic_catalog():
                 game["stores"]["epic"]["price_in_cents"] = -1
                 game["stores"]["epic"]["price_time"] = get_time()
 
-        write_json('epic_catalog.json', epic_catalog)
         if len(coincidences) > 0:
             write_json('games.json', games)
         logger('INFO', 'Ended updating JSON files')
@@ -646,15 +672,77 @@ def fetch_xbox_catalog():
 
     logger('INFO', 'Ended updating Xbox prices')
 
+def fetch_battle_catalog():
+    games = read_json('games.json')
+    url_names = []
+    for game in games:
+        url_names.append(game["url_name"])
+    coincidences = []
+
+    download_xml_sitemap('https://us.shop.battle.net/sitemap.xml', 'battle.xml')
+    battle_catalog = process_battle_sitemaps()
+
+    logger('INFO', 'Searching for coincidences between Steam and Battle.net catalogs')
+
+    for url in battle_catalog:
+        url_name = url.split("product/")[1]
+        if url_name in url_names:
+            coincidences.append({
+                'url': url,
+                'url_name': url_name,
+                'price_in_cents': -1,
+                'price_time': -1
+            })
+
+    logger('INFO', f'{len(coincidences)} coincidences found')
+
+    write_json(os.path.join("temp", "battle_coincidences.json"), coincidences)
+
+    logger('INFO', 'Started crawling Xbox prices')
+    try:
+        run_crawler('battle')
+    except:
+        logger('ERROR', traceback.format_exc())
+    logger('INFO', 'Ended crawling Xbox prices')
+
+
+    logger('INFO', 'Started updating Battle.net prices')
+    battle_coincidences = read_json(os.path.join("temp", "battle_coincidences.json"))
+    battle_coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in battle_coincidences}
+
+    for game in games:
+        if game["url_name"] in battle_coincidences_dict:
+            if battle_coincidences_dict[game["url_name"]]["price_in_cents"] != -1:
+                game["stores"]["battle"]["availability"] = True
+                game["stores"]["battle"]["price_in_cents"] = battle_coincidences_dict[game["url_name"]]["price_in_cents"]
+                game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
+            else:
+                game["stores"]["battle"]["availability"] = False
+                game["stores"]["battle"]["price_in_cents"] = -1
+                game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
+        else:
+            game["stores"]["battle"]["availability"] = False
+            game["stores"]["battle"]["price_in_cents"] = -1
+            game["stores"]["battle"]["price_time"] = get_time()
+
+    if len(battle_coincidences_dict) > 0:
+        write_json('games.json', games)
+
+    logger('INFO', 'Ended updating Battle.net prices')
+
+
 
 if __name__ == '__main__':
     try:
         initialize()
-        fetch_steam_catalog()
-        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520]) # TEST
+        #fetch_steam_catalog()
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820]) # TEST
         fetch_steam_details()
-        fetch_epic_catalog()
-        fetch_xbox_catalog()
+        #fetch_epic_catalog()
+        fetch_battle_catalog()
+        #fetch_xbox_catalog()
+
+        # todo: remove json_data/temp
 
     except:
         logger('ERROR', traceback.format_exc())

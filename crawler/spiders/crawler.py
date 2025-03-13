@@ -43,6 +43,26 @@ def get_xbox_price(price_span):
 
     return -1
 
+def get_battle_prices(self, data):
+    """ Función recursiva para extraer todas las claves 'price' de un JSON anidado """
+    prices = []
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == "price":
+                prices.append(value)
+            else:
+                prices.extend(get_battle_prices(self, value))
+
+    elif isinstance(data, list):
+        for item in data:
+            prices.extend(get_battle_prices(self, item))
+
+    return prices
+
+def battle_prices_list_string_to_list_int(prices):
+    return [int(float(price) * 100) for price in prices]
+
 class CrawlerSpider(Spider):
     name = "no-scraper"
     allowed_domains = [
@@ -57,6 +77,12 @@ class CrawlerSpider(Spider):
         match mode:
             case "xbox":
                 coincidences = read_json(os.path.join("temp", "xbox_coincidences.json"))
+                for coincidence in coincidences:
+                    urls.append(coincidence["url"])
+                self.coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in coincidences}
+
+            case "battle":
+                coincidences = read_json(os.path.join("temp", "battle_coincidences.json"))
                 for coincidence in coincidences:
                     urls.append(coincidence["url"])
                 self.coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in coincidences}
@@ -89,12 +115,41 @@ class CrawlerSpider(Spider):
                         self.coincidences_dict[current_url_name]["price_in_cents"] = current_price_in_cents
                         self.coincidences_dict[current_url_name]["price_time"] = current_price_time
 
+                case "battle":
+                    game_content = response.xpath('//script[@class="structured-product-data"]/text()').get()
+                    try:
+                        if game_content:
+                            data = json.loads(game_content)
+                            prices_string = get_battle_prices(self, data)
+                            prices_int = battle_prices_list_string_to_list_int(prices_string)
+                            current_price_in_cents = min(prices_int)
+                        else:
+                            current_price_in_cents = -1
+
+                        current_url_name = response.url.split("product/")[1]
+                        if current_url_name in self.coincidences_dict:
+                            self.coincidences_dict[current_url_name]["price_in_cents"] = current_price_in_cents
+                            self.coincidences_dict[current_url_name]["price_time"] = get_time()
+
+                    except json.JSONDecodeError as e:
+                        logger('ERROR', e)
+
                 case _:
                     logger('ERROR', 'Crawler mode not recognized')
         except:
             logger('ERROR', traceback.format_exc())
 
     def closed(self, reason):
-        logger('INFO', "Started updating JSON file 'xbox_coincidences.json'")
-        write_json(os.path.join("temp", "xbox_coincidences.json"), list(self.coincidences_dict.values()))
-        logger('INFO', "Ended updating JSON file 'xbox_coincidences.json'")
+        match self.mode:
+            case "xbox":
+                logger('INFO', "Started updating JSON file 'xbox_coincidences.json'")
+                write_json(os.path.join("temp", "xbox_coincidences.json"), list(self.coincidences_dict.values()))
+                logger('INFO', "Ended updating JSON file 'xbox_coincidences.json'")
+
+            case "battle":
+                logger('INFO', "Started updating JSON file 'battle_coincidences.json'")
+                write_json(os.path.join("temp", "battle_coincidences.json"), list(self.coincidences_dict.values()))
+                logger('INFO', "Ended updating JSON file 'battle_coincidences.json'")
+
+            case _:
+                logger('ERROR', 'Crawler mode not recognized')

@@ -12,3 +12,9 @@ movies
             "480": "http://video.akamai.steamstatic.com/store_trailers/257092650/movie480.mp4?t=1738084055",
             "max": "http://video.akamai.steamstatic.com/store_trailers/257092650/movie_max.mp4?t=1738084055"
           },
+
+
+
+-----------------------------------------------------------------------------
+
+precio xbox -2 = in gamepass

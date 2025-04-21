@@ -44,8 +44,10 @@ def initialize():
         os.path.join(json_data_folder, "publishers.json"),
         os.path.join(xml_sitemaps_folder, "xbox.xml"),
         os.path.join(xml_sitemaps_folder, "battle.xml"),
-        os.path.join(xml_sitemaps_folder, "rockstar.xml"),
-        os.path.join(json_temp_folder, "xbox_coincidences.json")
+        os.path.join(xml_sitemaps_folder, "gog.xml"),
+        os.path.join(json_temp_folder, "xbox_coincidences.json"),
+        os.path.join(json_temp_folder, "battle_coincidences.json"),
+        os.path.join(json_temp_folder, "gog_catalog.json")
     ]
 
     for file in files:
@@ -222,7 +224,7 @@ def update_games_catalog(games):
         "epic": default_store_json,
         "xbox": default_store_json,
         "battle": default_store_json,
-        "rockstar": default_store_json,
+        "gog": default_store_json,
     }
     default_critic_json = {
         "scale": -1,
@@ -730,17 +732,68 @@ def fetch_battle_catalog():
 
     logger('INFO', 'Ended updating Battle.net prices')
 
+def fetch_gog_catalog():
+    logger('INFO', 'Started fetching gog.com catalog')
+
+    games = read_json('games.json')
+    url_names = []
+    gog_catalog = []
+    for game in games:
+        url_names.append(game["url_name"])
+        gog_catalog.append({
+            'url': 'https://www.gog.com/en/game/' + game["url_name"].replace('-', '_'),
+            'url_name': game["url_name"],
+            'price_in_cents': -1,
+            'price_time': -1
+        })
+
+    write_json(os.path.join("temp", "gog_catalog.json"), gog_catalog)
+
+    logger('INFO', 'Started crawling gog.com prices')
+    try:
+        run_crawler('gog')
+    except:
+        logger('ERROR', traceback.format_exc())
+    logger('INFO', 'Ended crawling gog.com prices')
+
+    # ---
+
+    logger('INFO', 'Started updating gog.com prices')
+    gog_coincidences = read_json(os.path.join("temp", "gog_catalog.json"))
+    gog_coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in gog_coincidences}
+
+    for game in games:
+        if game["url_name"] in gog_coincidences_dict:
+            if gog_coincidences_dict[game["url_name"]]["price_in_cents"] != -1:
+                game["stores"]["gog"]["availability"] = True
+                game["stores"]["gog"]["price_in_cents"] = gog_coincidences_dict[game["url_name"]]["price_in_cents"]
+                game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
+            else:
+                game["stores"]["gog"]["availability"] = False
+                game["stores"]["gog"]["price_in_cents"] = -1
+                game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
+        else:
+            game["stores"]["gog"]["availability"] = False
+            game["stores"]["gog"]["price_in_cents"] = -1
+            game["stores"]["gog"]["price_time"] = get_time()
+
+    if len(gog_coincidences_dict) > 0:
+        write_json('games.json', games)
+
+    logger('INFO', 'Ended updating gog.net prices')
+
 
 
 if __name__ == '__main__':
     try:
         initialize()
         #fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820]) # TEST
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500]) # TEST
         fetch_steam_details()
         #fetch_epic_catalog()
-        fetch_battle_catalog()
+        #fetch_battle_catalog()
         #fetch_xbox_catalog()
+        fetch_gog_catalog()
 
         # todo: remove json_data/temp
 

@@ -68,7 +68,7 @@ class CrawlerSpider(Spider):
     allowed_domains = [
         "www.xbox.com/",
         "eu.shop.battle.net/",
-        # TODO: Falta Rockstar
+        "www.gog.com/"
     ]
 
     def __init__(self, mode, *args, **kwargs):
@@ -83,6 +83,12 @@ class CrawlerSpider(Spider):
 
             case "battle":
                 coincidences = read_json(os.path.join("temp", "battle_coincidences.json"))
+                for coincidence in coincidences:
+                    urls.append(coincidence["url"])
+                self.coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in coincidences}
+
+            case "gog":
+                coincidences = read_json(os.path.join("temp", "gog_catalog.json"))
                 for coincidence in coincidences:
                     urls.append(coincidence["url"])
                 self.coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in coincidences}
@@ -134,6 +140,25 @@ class CrawlerSpider(Spider):
                     except json.JSONDecodeError as e:
                         logger('ERROR', e)
 
+                case "gog":
+                    if response.url != 'https://www.gog.com/en/games':
+                        price_in_cents = -1
+                        json_ld_script = response.xpath('//script[@type="application/ld+json"]/text()').get()
+                        if json_ld_script:
+                            data = json.loads(json_ld_script)
+                            offers = data.get("offers", [])
+
+                            if isinstance(offers, list):
+                                for offer in offers:
+                                    if offer.get("areaServed") == "ES" and offer.get("priceCurrency") == "EUR":
+                                        price_in_cents = int(float(offer.get("price")) * 100)
+                                        break
+
+                        current_url_name = response.url.split("game/")[1].replace("_", "-")
+                        if current_url_name in self.coincidences_dict:
+                            self.coincidences_dict[current_url_name]["price_in_cents"] = price_in_cents
+                            self.coincidences_dict[current_url_name]["price_time"] = get_time()
+
                 case _:
                     logger('ERROR', 'Crawler mode not recognized')
         except:
@@ -150,6 +175,11 @@ class CrawlerSpider(Spider):
                 logger('INFO', "Started updating JSON file 'battle_coincidences.json'")
                 write_json(os.path.join("temp", "battle_coincidences.json"), list(self.coincidences_dict.values()))
                 logger('INFO', "Ended updating JSON file 'battle_coincidences.json'")
+
+            case "gog":
+                logger('INFO', "Started updating JSON file 'gog_catalog.json'")
+                write_json(os.path.join("temp", "gog_catalog.json"), list(self.coincidences_dict.values()))
+                logger('INFO', "Ended updating JSON file 'gog_catalog.json'")
 
             case _:
                 logger('ERROR', 'Crawler mode not recognized')

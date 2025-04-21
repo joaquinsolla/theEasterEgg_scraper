@@ -36,7 +36,7 @@ def initialize():
             logger('INFO', f'Created {folder}')
 
     files = [
-        os.path.join(json_data_folder, "fetch_info.json"),
+        os.path.join(json_data_folder, "fetching_info.json"),
         os.path.join(json_data_folder, "games.json"),
         os.path.join(json_data_folder, "genres.json"),
         os.path.join(json_data_folder, "categories.json"),
@@ -112,6 +112,7 @@ def get_steam_data(data):
     availability = False
     price_in_cents = -1
     price_time = get_time()
+    url = None
 
     if data["is_free"]:
         availability = True
@@ -120,10 +121,14 @@ def get_steam_data(data):
         availability = True
         price_in_cents = data["price_overview"]["final"]
 
+    if availability:
+        url = "https://store.steampowered.com/app/" + str(data["steam_appid"])
+
     return {
         "availability": availability,
         "price_in_cents": price_in_cents,
-        "price_time": price_time
+        "price_time": price_time,
+        "url": url
     }
 
 def get_metacritic_data(data):
@@ -217,7 +222,8 @@ def update_games_catalog(games):
     default_store_json = {
         "availability": False,
         "price_in_cents": -1,
-        "price_time": -1
+        "price_time": -1,
+        "url": None
     }
     stores = {
         "steam": default_store_json,
@@ -608,10 +614,12 @@ def fetch_epic_catalog():
                 game["stores"]["epic"]["availability"] = True
                 game["stores"]["epic"]["price_in_cents"] = coincidences_dict[game["url_name"]]
                 game["stores"]["epic"]["price_time"] = get_time()
+                game["stores"]["epic"]["url"] = "https://store.epicgames.com/es-ES/p/" + game["url_name"]
             else:
                 game["stores"]["epic"]["availability"] = False
                 game["stores"]["epic"]["price_in_cents"] = -1
                 game["stores"]["epic"]["price_time"] = get_time()
+                game["stores"]["epic"]["url"] = None
 
         if len(coincidences) > 0:
             write_json('games.json', games)
@@ -660,14 +668,17 @@ def fetch_xbox_catalog():
                 game["stores"]["xbox"]["availability"] = True
                 game["stores"]["xbox"]["price_in_cents"] = xbox_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
+                game["stores"]["xbox"]["url"] = xbox_coincidences_dict[game["url_name"]]["url"]
             else:
                 game["stores"]["xbox"]["availability"] = False
                 game["stores"]["xbox"]["price_in_cents"] = -1
-                game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
+                game["stores"]["xbox"]["price_time"] = get_time()
+                game["stores"]["xbox"]["url"] = None
         else:
             game["stores"]["xbox"]["availability"] = False
             game["stores"]["xbox"]["price_in_cents"] = -1
             game["stores"]["xbox"]["price_time"] = get_time()
+            game["stores"]["xbox"]["url"] = None
 
     if len(xbox_coincidences_dict) > 0:
         write_json('games.json', games)
@@ -718,14 +729,17 @@ def fetch_battle_catalog():
                 game["stores"]["battle"]["availability"] = True
                 game["stores"]["battle"]["price_in_cents"] = battle_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
+                game["stores"]["battle"]["url"] = battle_coincidences_dict[game["url_name"]]["url"]
             else:
                 game["stores"]["battle"]["availability"] = False
                 game["stores"]["battle"]["price_in_cents"] = -1
-                game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
+                game["stores"]["battle"]["price_time"] = get_time()
+                game["stores"]["battle"]["url"] = None
         else:
             game["stores"]["battle"]["availability"] = False
             game["stores"]["battle"]["price_in_cents"] = -1
             game["stores"]["battle"]["price_time"] = get_time()
+            game["stores"]["battle"]["url"] = None
 
     if len(battle_coincidences_dict) > 0:
         write_json('games.json', games)
@@ -768,19 +782,22 @@ def fetch_gog_catalog():
                 game["stores"]["gog"]["availability"] = True
                 game["stores"]["gog"]["price_in_cents"] = gog_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
+                game["stores"]["gog"]["url"] = gog_coincidences_dict[game["url_name"]]["url"]
             else:
                 game["stores"]["gog"]["availability"] = False
                 game["stores"]["gog"]["price_in_cents"] = -1
-                game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
+                game["stores"]["gog"]["price_time"] = get_time()
+                game["stores"]["gog"]["url"] = None
         else:
             game["stores"]["gog"]["availability"] = False
             game["stores"]["gog"]["price_in_cents"] = -1
             game["stores"]["gog"]["price_time"] = get_time()
+            game["stores"]["gog"]["url"] = None
 
     if len(gog_coincidences_dict) > 0:
         write_json('games.json', games)
 
-    logger('INFO', 'Ended updating gog.net prices')
+    logger('INFO', 'Ended updating gog.com prices')
 
 
 
@@ -790,12 +807,13 @@ if __name__ == '__main__':
         #fetch_steam_catalog()
         fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500]) # TEST
         fetch_steam_details()
-        #fetch_epic_catalog()
-        #fetch_battle_catalog()
-        #fetch_xbox_catalog()
+        fetch_epic_catalog()
+        fetch_battle_catalog()
+        fetch_xbox_catalog()
         fetch_gog_catalog()
 
         # todo: remove json_data/temp
+        finalize()
 
     except:
         logger('ERROR', traceback.format_exc())

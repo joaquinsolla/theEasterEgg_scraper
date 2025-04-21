@@ -103,27 +103,31 @@ class CrawlerSpider(Spider):
         try:
             match self.mode:
                 case "xbox":
-                    price_span = response.css("div.ProductDetailsHeader-module__price___-NaHV span.Price-module__boldText___1i2Li::text").get()
+                    try:
+                        price_span = response.css("div.ProductDetailsHeader-module__price___-NaHV span.Price-module__boldText___1i2Li::text").get()
 
-                    if price_span:
-                        current_price_in_cents = get_xbox_price(price_span)
-                    else:
-                        game_pass_label = response.css("div.ProductLogos-module__gamePassLogo___UxbvF svg::attr(aria-label)").get()
-                        if game_pass_label and "incluido con game pass" in game_pass_label.lower().strip():
-                            current_price_in_cents = -2
+                        if price_span:
+                            current_price_in_cents = get_xbox_price(price_span)
                         else:
-                            current_price_in_cents = -1
+                            game_pass_label = response.css("div.ProductLogos-module__gamePassLogo___UxbvF svg::attr(aria-label)").get()
+                            if game_pass_label and "incluido con game pass" in game_pass_label.lower().strip():
+                                current_price_in_cents = -2
+                            else:
+                                current_price_in_cents = -1
 
-                    current_price_time = get_time()
-                    current_url_name = response.url.split("store/")[1].split("/")[0]
+                        current_url_name = response.url.split("store/")[1].split("/")[0]
+                        if current_url_name in self.coincidences_dict:
+                            self.coincidences_dict[current_url_name]["price_in_cents"] = current_price_in_cents
+                            self.coincidences_dict[current_url_name]["url"] = response.url
+                            self.coincidences_dict[current_url_name]["price_time"] = get_time()
 
-                    if current_url_name in self.coincidences_dict:
-                        self.coincidences_dict[current_url_name]["price_in_cents"] = current_price_in_cents
-                        self.coincidences_dict[current_url_name]["price_time"] = current_price_time
+                    except json.JSONDecodeError as e:
+                        logger('ERROR', e)
 
                 case "battle":
-                    game_content = response.xpath('//script[@class="structured-product-data"]/text()').get()
                     try:
+                        game_content = response.xpath('//script[@class="structured-product-data"]/text()').get()
+
                         if game_content:
                             data = json.loads(game_content)
                             prices_string = get_battle_prices(self, data)
@@ -135,29 +139,35 @@ class CrawlerSpider(Spider):
                         current_url_name = response.url.split("product/")[1]
                         if current_url_name in self.coincidences_dict:
                             self.coincidences_dict[current_url_name]["price_in_cents"] = current_price_in_cents
+                            self.coincidences_dict[current_url_name]["url"] = response.url
                             self.coincidences_dict[current_url_name]["price_time"] = get_time()
 
                     except json.JSONDecodeError as e:
                         logger('ERROR', e)
 
                 case "gog":
-                    if response.url != 'https://www.gog.com/en/games':
-                        price_in_cents = -1
-                        json_ld_script = response.xpath('//script[@type="application/ld+json"]/text()').get()
-                        if json_ld_script:
-                            data = json.loads(json_ld_script)
-                            offers = data.get("offers", [])
+                    try:
+                        if response.url != 'https://www.gog.com/en/games':
+                            price_in_cents = -1
+                            json_ld_script = response.xpath('//script[@type="application/ld+json"]/text()').get()
+                            if json_ld_script:
+                                data = json.loads(json_ld_script)
+                                offers = data.get("offers", [])
 
-                            if isinstance(offers, list):
-                                for offer in offers:
-                                    if offer.get("areaServed") == "ES" and offer.get("priceCurrency") == "EUR":
-                                        price_in_cents = int(float(offer.get("price")) * 100)
-                                        break
+                                if isinstance(offers, list):
+                                    for offer in offers:
+                                        if offer.get("areaServed") == "ES" and offer.get("priceCurrency") == "EUR":
+                                            price_in_cents = int(float(offer.get("price")) * 100)
+                                            break
 
-                        current_url_name = response.url.split("game/")[1].replace("_", "-")
-                        if current_url_name in self.coincidences_dict:
-                            self.coincidences_dict[current_url_name]["price_in_cents"] = price_in_cents
-                            self.coincidences_dict[current_url_name]["price_time"] = get_time()
+                            current_url_name = response.url.split("game/")[1].replace("_", "-")
+                            if current_url_name in self.coincidences_dict:
+                                self.coincidences_dict[current_url_name]["price_in_cents"] = price_in_cents
+                                self.coincidences_dict[current_url_name]["url"] = response.url
+                                self.coincidences_dict[current_url_name]["price_time"] = get_time()
+
+                    except json.JSONDecodeError as e:
+                        logger('ERROR', e)
 
                 case _:
                     logger('ERROR', 'Crawler mode not recognized')

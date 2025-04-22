@@ -47,7 +47,8 @@ def initialize():
         os.path.join(xml_sitemaps_folder, "gog.xml"),
         os.path.join(json_temp_folder, "xbox_coincidences.json"),
         os.path.join(json_temp_folder, "battle_coincidences.json"),
-        os.path.join(json_temp_folder, "gog_catalog.json")
+        os.path.join(json_temp_folder, "gog_catalog.json"),
+        os.path.join(json_data_folder, "prices_history.json")
     ]
 
     for file in files:
@@ -279,6 +280,35 @@ def update_games_catalog(games):
     write_json('games.json', list(old_apps_dict.values()))
     logger('INFO', 'Ended updating games catalog')
 
+def update_prices_history(games):
+    """
+    :param games:
+    :return:
+    """
+    logger('INFO', 'Started updating prices history')
+
+    old_history = []
+
+    if os.path.getsize(os.path.join(parent_path, "json_data", "prices_history.json")) > 0:
+        old_history = read_json('prices_history.json')
+
+    old_history_dict = {entry["appid"]: entry for entry in old_history}
+
+    for app in games:
+        appid = app["appid"]
+        if appid not in old_history_dict:
+            old_history.append({
+                "appid": appid,
+                "steam": [],
+                "epic": [],
+                "xbox": [],
+                "battle": [],
+                "gog": [],
+            })
+
+    write_json('prices_history.json', old_history)
+    logger('INFO', 'Ended updating prices history')
+
 def process_xbox_sitemaps():
     try:
         download_xml_sitemap('https://www.xbox.com/sitemap.xml', 'xbox.xml')
@@ -443,6 +473,7 @@ def fetch_steam_catalog():
             apps.extend(apps_chunk)
             if len(apps_chunk) < max_results:
                 update_games_catalog(apps)
+                update_prices_history(apps)
                 break
             else:
                 last_app_id = apps_chunk[-1]["appid"]
@@ -473,6 +504,7 @@ def fetch_steam_catalog_by_ids(ids_list):
             apps.extend(apps_chunk)
             if len(apps) >= len(ids_list):
                 update_games_catalog(apps)
+                update_prices_history(apps)
                 break
         else:
             logger('ERROR', f'GetAppList request failed: {response_get_app_list.status_code}')
@@ -495,6 +527,8 @@ def fetch_steam_details():
     categories = read_json('categories.json')
     developers = read_json('developers.json')
     publishers = read_json('publishers.json')
+    prices_history = read_json('prices_history.json')
+    prices_history_dict = {entry["appid"]: entry for entry in prices_history}
 
     try:
         for app in games:
@@ -523,6 +557,14 @@ def fetch_steam_details():
                         # Publishers
                         if "publishers" in app["data"]:
                             publishers.extend(item for item in app["data"]["publishers"] if item not in publishers)
+                        # Prices history (Steam)
+                        if app["stores"]["steam"]["price_in_cents"] >= 0:
+                            if appid in prices_history_dict:
+                                prices_history_dict[appid]["steam"].append({
+                                    "price_in_cents": app["stores"]["steam"]["price_in_cents"],
+                                    "price_time": app["stores"]["steam"]["price_time"],
+                                })
+
                     else:
                         logger('INFO', f'Cannot fetch details for app {appid}: Not available', response_get_app_details.status_code)
 
@@ -553,12 +595,15 @@ def fetch_steam_details():
     write_json('categories.json', categories)
     write_json('developers.json', developers)
     write_json('publishers.json', publishers)
+    write_json('prices_history.json', list(prices_history_dict.values()))
     logger('INFO', 'Ended updating JSON files')
 
 def fetch_epic_catalog():
     logger('INFO', 'Started fetching Epic Games catalog')
 
     games = read_json('games.json')
+    prices_history = read_json('prices_history.json')
+    prices_history_dict = {entry["appid"]: entry for entry in prices_history}
     url_names = []
     for game in games:
         url_names.append(game["url_name"])
@@ -615,6 +660,13 @@ def fetch_epic_catalog():
                 game["stores"]["epic"]["price_in_cents"] = coincidences_dict[game["url_name"]]
                 game["stores"]["epic"]["price_time"] = get_time()
                 game["stores"]["epic"]["url"] = "https://store.epicgames.com/es-ES/p/" + game["url_name"]
+                # Prices history (Epic)
+                if game["stores"]["epic"]["price_in_cents"] >= 0:
+                    if game["appid"] in prices_history_dict:
+                        prices_history_dict[game["appid"]]["epic"].append({
+                            "price_in_cents": game["stores"]["epic"]["price_in_cents"],
+                            "price_time": game["stores"]["epic"]["price_time"],
+                        })
             else:
                 game["stores"]["epic"]["availability"] = False
                 game["stores"]["epic"]["price_in_cents"] = -1
@@ -623,6 +675,7 @@ def fetch_epic_catalog():
 
         if len(coincidences) > 0:
             write_json('games.json', games)
+            write_json('prices_history.json', list(prices_history_dict.values()))
         logger('INFO', 'Ended updating JSON files')
     except:
         logger('ERROR', traceback.format_exc())
@@ -635,6 +688,8 @@ def fetch_xbox_catalog():
     xbox_catalog = build_xbox_catalog()
 
     games = read_json('games.json')
+    prices_history = read_json('prices_history.json')
+    prices_history_dict = {entry["appid"]: entry for entry in prices_history}
     url_names = []
     for game in games:
         url_names.append(game["url_name"])
@@ -669,9 +724,16 @@ def fetch_xbox_catalog():
                 game["stores"]["xbox"]["price_in_cents"] = xbox_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["xbox"]["url"] = xbox_coincidences_dict[game["url_name"]]["url"]
+                # Prices history (Xbox)
+                if game["stores"]["xbox"]["price_in_cents"] >= 0:
+                    if game["appid"] in prices_history_dict:
+                        prices_history_dict[game["appid"]]["xbox"].append({
+                            "price_in_cents": game["stores"]["xbox"]["price_in_cents"],
+                            "price_time": game["stores"]["xbox"]["price_time"],
+                        })
             else:
                 game["stores"]["xbox"]["availability"] = False
-                game["stores"]["xbox"]["price_in_cents"] = -1
+                game["stores"]["xbox"]["price_in_cents"] = xbox_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["xbox"]["price_time"] = get_time()
                 game["stores"]["xbox"]["url"] = None
         else:
@@ -682,11 +744,14 @@ def fetch_xbox_catalog():
 
     if len(xbox_coincidences_dict) > 0:
         write_json('games.json', games)
+        write_json('prices_history.json', list(prices_history_dict.values()))
 
     logger('INFO', 'Ended updating Xbox prices')
 
 def fetch_battle_catalog():
     games = read_json('games.json')
+    prices_history = read_json('prices_history.json')
+    prices_history_dict = {entry["appid"]: entry for entry in prices_history}
     url_names = []
     for game in games:
         url_names.append(game["url_name"])
@@ -730,6 +795,13 @@ def fetch_battle_catalog():
                 game["stores"]["battle"]["price_in_cents"] = battle_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["battle"]["url"] = battle_coincidences_dict[game["url_name"]]["url"]
+                # Prices history (Battle)
+                if game["stores"]["battle"]["price_in_cents"] >= 0:
+                    if game["appid"] in prices_history_dict:
+                        prices_history_dict[game["appid"]]["battle"].append({
+                            "price_in_cents": game["stores"]["battle"]["price_in_cents"],
+                            "price_time": game["stores"]["battle"]["price_time"],
+                        })
             else:
                 game["stores"]["battle"]["availability"] = False
                 game["stores"]["battle"]["price_in_cents"] = -1
@@ -743,13 +815,14 @@ def fetch_battle_catalog():
 
     if len(battle_coincidences_dict) > 0:
         write_json('games.json', games)
+        write_json('prices_history.json', list(prices_history_dict.values()))
 
     logger('INFO', 'Ended updating Battle.net prices')
 
 def fetch_gog_catalog():
-    logger('INFO', 'Started fetching gog.com catalog')
-
     games = read_json('games.json')
+    prices_history = read_json('prices_history.json')
+    prices_history_dict = {entry["appid"]: entry for entry in prices_history}
     url_names = []
     gog_catalog = []
     for game in games:
@@ -783,6 +856,13 @@ def fetch_gog_catalog():
                 game["stores"]["gog"]["price_in_cents"] = gog_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["gog"]["url"] = gog_coincidences_dict[game["url_name"]]["url"]
+                # Prices history (gog)
+                if game["stores"]["gog"]["price_in_cents"] >= 0:
+                    if game["appid"] in prices_history_dict:
+                        prices_history_dict[game["appid"]]["gog"].append({
+                            "price_in_cents": game["stores"]["gog"]["price_in_cents"],
+                            "price_time": game["stores"]["gog"]["price_time"],
+                        })
             else:
                 game["stores"]["gog"]["availability"] = False
                 game["stores"]["gog"]["price_in_cents"] = -1
@@ -796,6 +876,7 @@ def fetch_gog_catalog():
 
     if len(gog_coincidences_dict) > 0:
         write_json('games.json', games)
+        write_json('prices_history.json', list(prices_history_dict.values()))
 
     logger('INFO', 'Ended updating gog.com prices')
 
@@ -807,9 +888,9 @@ if __name__ == '__main__':
         #fetch_steam_catalog()
         fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500]) # TEST
         fetch_steam_details()
-        fetch_epic_catalog()
+        #fetch_epic_catalog() # DONE
         fetch_battle_catalog()
-        fetch_xbox_catalog()
+        #fetch_xbox_catalog()
         fetch_gog_catalog()
 
         # todo: remove json_data/temp

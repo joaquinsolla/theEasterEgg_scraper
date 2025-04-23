@@ -481,6 +481,7 @@ def build_xbox_catalog():
 
 def fetch_steam_catalog():
     """
+    :param limit:
     :return:
     """
     logger('INFO','Started fetching Steam catalog')
@@ -543,7 +544,7 @@ def fetch_steam_catalog_by_ids(ids_list):
             break
     logger('INFO', 'Ended fetching Steam catalog')
 
-def fetch_steam_details():
+def fetch_steam_details(limit=None):
     """
     Rate limits: 100.000reqs/day AND 200reqs/5min
 
@@ -561,12 +562,14 @@ def fetch_steam_details():
     publishers = read_json('publishers.json')
     prices_history = read_json('prices_history.json')
     prices_history_dict = {entry["appid"]: entry for entry in prices_history}
+    count = 0
 
     try:
         for app in games:
             start_time = time.time()
             appid = app["appid"]
-            if app["last_fetched"] < app["last_modified"]:
+            if app["last_fetched"] < app["last_modified"] and (limit is None or count <= limit):
+                count += 1
                 response_get_app_details = requests.get(f"https://store.steampowered.com/api/appdetails?appids={appid}")
                 if response_get_app_details.status_code == 200:
                     data = response_get_app_details.json().get(str(appid), {})
@@ -614,6 +617,9 @@ def fetch_steam_details():
                 else:
                     logger('ERROR', f'Error fetching details for app {appid}: Unknown error', response_get_app_details.status_code)
                     break
+            elif limit is not None and count > limit:
+                logger('INFO', f'Reached manual fetching limit of {limit}')
+                break
             else:
                 # Prices history (Steam)
                 if app["stores"]["steam"]["price_in_cents"] >= 0:
@@ -931,9 +937,9 @@ def fetch_gog_catalog():
 if __name__ == '__main__':
     try:
         initialize()
-        #fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490]) # TEST
-        fetch_steam_details()
+        fetch_steam_catalog()
+        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490]) # TEST
+        fetch_steam_details(25)
         fetch_epic_catalog()
         fetch_battle_catalog()
         fetch_xbox_catalog()

@@ -121,8 +121,8 @@ class CrawlerSpider(Spider):
                             self.coincidences_dict[current_url_name]["url"] = response.url
                             self.coincidences_dict[current_url_name]["price_time"] = get_time()
 
-                    except json.JSONDecodeError as e:
-                        logger('ERROR', e)
+                    except:
+                        logger('ERROR', traceback.format_exc())
 
                 case "battle":
                     try:
@@ -142,8 +142,8 @@ class CrawlerSpider(Spider):
                             self.coincidences_dict[current_url_name]["url"] = response.url
                             self.coincidences_dict[current_url_name]["price_time"] = get_time()
 
-                    except json.JSONDecodeError as e:
-                        logger('ERROR', e)
+                    except:
+                        logger('ERROR', traceback.format_exc())
 
                 case "gog":
                     try:
@@ -166,8 +166,8 @@ class CrawlerSpider(Spider):
                                 self.coincidences_dict[current_url_name]["url"] = response.url
                                 self.coincidences_dict[current_url_name]["price_time"] = get_time()
 
-                    except json.JSONDecodeError as e:
-                        logger('ERROR', e)
+                    except:
+                        logger('ERROR', traceback.format_exc())
 
                 case _:
                     logger('ERROR', 'Crawler mode not recognized')

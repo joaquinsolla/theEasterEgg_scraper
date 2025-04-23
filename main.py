@@ -615,6 +615,14 @@ def fetch_steam_details():
                     logger('ERROR', f'Error fetching details for app {appid}: Unknown error', response_get_app_details.status_code)
                     break
             else:
+                # Prices history (Steam)
+                if app["stores"]["steam"]["price_in_cents"] >= 0:
+                    if appid in prices_history_dict:
+                        prices_history_dict[appid]["steam"].append({
+                            "price_in_cents": app["stores"]["steam"]["price_in_cents"],
+                            "price_time": get_time(),
+                        })
+
                 logger('INFO', f'Skipped app {appid}: Already up to date')
     except:
         logger('ERROR', traceback.format_exc(), f'appid={appid}')

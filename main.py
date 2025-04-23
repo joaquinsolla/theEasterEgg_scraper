@@ -59,11 +59,17 @@ def initialize():
 
     logger('INFO', 'Initialization done')
 
-def finalize():
-    info = {
-        "last_fetch": get_time(),
+def finalize(error=None):
+    old_data = read_json("fetching_info.json")
+    execution = 1
+    if "exec_no" in old_data:
+        execution = old_data["exec_no"]+1
+    new_data = {
+        "exec_no": execution,
+        "time": get_time(),
+        "error": error
     }
-    write_json("fetching_info.json", info)
+    write_json("fetching_info.json", new_data)
 
 def read_json(filename):
     file_path = os.path.join(parent_path, 'json_data', filename)
@@ -937,8 +943,8 @@ def fetch_gog_catalog():
 if __name__ == '__main__':
     try:
         initialize()
-        fetch_steam_catalog()
-        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490]) # TEST
+        #fetch_steam_catalog()
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490]) # TEST
         fetch_steam_details(25)
         fetch_epic_catalog()
         fetch_battle_catalog()
@@ -947,4 +953,5 @@ if __name__ == '__main__':
         finalize()
 
     except:
+        finalize(traceback)
         logger('ERROR', traceback.format_exc())

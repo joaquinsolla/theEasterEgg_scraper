@@ -47,7 +47,7 @@ def initialize():
         os.path.join(xml_sitemaps_folder, "gog.xml"),
         os.path.join(json_temp_folder, "xbox_coincidences.json"),
         os.path.join(json_temp_folder, "battle_coincidences.json"),
-        os.path.join(json_temp_folder, "gog_catalog.json"),
+        os.path.join(json_temp_folder, "gog_coincidences.json"),
         os.path.join(json_data_folder, "prices_history.json")
     ]
 
@@ -391,6 +391,37 @@ def process_battle_sitemaps():
         logger('ERROR', traceback.format_exc())
 
     return urls
+
+def process_gog_sitemaps():
+    try:
+        download_xml_sitemap('https://www.gog.com/sitemap_en.xml', 'gog.xml')
+
+        with open(os.path.join(parent_path, "xml_sitemaps", 'gog.xml'), "r", encoding="utf-8") as file:
+            xml_data = file.read()
+
+        root = ET.fromstring(xml_data)
+        namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+
+        catalog = []
+        for url in root.findall('ns:url', namespace):
+            loc = url.find('ns:loc', namespace).text
+            lastmod = url.find('ns:lastmod', namespace).text
+
+            if '/game/' in loc:
+                dt = datetime.strptime(lastmod, "%Y-%m-%d")
+                seconds = int(dt.timestamp())
+                url_name = loc.split('/game/')[-1].replace('_', '-')
+
+                catalog.append({
+                    "url": loc,
+                    "lastmod": seconds,
+                    "url_name": url_name
+                })
+
+        return catalog
+
+    except:
+        logger('ERROR', traceback.format_exc())
 
 def run_crawler(mode):
     """
@@ -824,17 +855,26 @@ def fetch_gog_catalog():
     prices_history = read_json('prices_history.json')
     prices_history_dict = {entry["appid"]: entry for entry in prices_history}
     url_names = []
-    gog_catalog = []
     for game in games:
         url_names.append(game["url_name"])
-        gog_catalog.append({
-            'url': 'https://www.gog.com/en/game/' + game["url_name"].replace('-', '_'),
-            'url_name': game["url_name"],
-            'price_in_cents': -1,
-            'price_time': -1
-        })
+    coincidences = []
 
-    write_json(os.path.join("temp", "gog_catalog.json"), gog_catalog)
+    gog_catalog = process_gog_sitemaps()
+
+    logger('INFO', 'Searching for coincidences between Steam and gog.com catalogs')
+
+    for game in gog_catalog:
+        url_name = game["url_name"]
+        if url_name in url_names:
+            coincidences.append({
+                'url': game["url"],
+                'url_name': url_name,
+                'price_in_cents': -1,
+                'price_time': -1
+            })
+
+    write_json(os.path.join("temp", "gog_coincidences.json"), coincidences)
+    logger('INFO', f'{len(coincidences)} coincidences found')
 
     logger('INFO', 'Started crawling gog.com prices')
     try:
@@ -843,10 +883,9 @@ def fetch_gog_catalog():
         logger('ERROR', traceback.format_exc())
     logger('INFO', 'Ended crawling gog.com prices')
 
-    # ---
-
     logger('INFO', 'Started updating gog.com prices')
-    gog_coincidences = read_json(os.path.join("temp", "gog_catalog.json"))
+
+    gog_coincidences = read_json(os.path.join("temp", "gog_coincidences.json"))
     gog_coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in gog_coincidences}
 
     for game in games:
@@ -886,14 +925,12 @@ if __name__ == '__main__':
     try:
         initialize()
         #fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500]) # TEST
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490]) # TEST
         fetch_steam_details()
-        #fetch_epic_catalog() # DONE
-        fetch_battle_catalog()
+        #fetch_epic_catalog()
+        # fetch_battle_catalog() # TODO: Currently not available
         #fetch_xbox_catalog()
         fetch_gog_catalog()
-
-        # todo: remove json_data/temp
         finalize()
 
     except:

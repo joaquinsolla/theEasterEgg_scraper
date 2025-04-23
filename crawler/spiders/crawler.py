@@ -88,7 +88,7 @@ class CrawlerSpider(Spider):
                 self.coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in coincidences}
 
             case "gog":
-                coincidences = read_json(os.path.join("temp", "gog_catalog.json"))
+                coincidences = read_json(os.path.join("temp", "gog_coincidences.json"))
                 for coincidence in coincidences:
                     urls.append(coincidence["url"])
                 self.coincidences_dict = {coincidence["url_name"]: coincidence for coincidence in coincidences}
@@ -187,9 +187,9 @@ class CrawlerSpider(Spider):
                 logger('INFO', "Ended updating JSON file 'battle_coincidences.json'")
 
             case "gog":
-                logger('INFO', "Started updating JSON file 'gog_catalog.json'")
-                write_json(os.path.join("temp", "gog_catalog.json"), list(self.coincidences_dict.values()))
-                logger('INFO', "Ended updating JSON file 'gog_catalog.json'")
+                logger('INFO', "Started updating JSON file 'gog_coincidences.json'")
+                write_json(os.path.join("temp", "gog_coincidences.json"), list(self.coincidences_dict.values()))
+                logger('INFO', "Ended updating JSON file 'gog_coincidences.json'")
 
             case _:
                 logger('ERROR', 'Crawler mode not recognized')

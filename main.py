@@ -363,34 +363,35 @@ def process_xbox_sitemaps():
         logger('ERROR', traceback.format_exc())
 
 def process_battle_sitemaps():
-    urls = []
-
     try:
+        download_xml_sitemap('https://eu.shop.battle.net/sitemap_es-es.xml', 'battle.xml')
+
         with open(os.path.join(parent_path, "xml_sitemaps", 'battle.xml'), "r", encoding="utf-8") as file:
             xml_data = file.read()
 
         root = ET.fromstring(xml_data)
+        namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
 
-        namespace = {
-            'sitemap': 'http://www.sitemaps.org/schemas/sitemap/0.9',
-            'xhtml': 'http://www.w3.org/1999/xhtml'
-        }
+        catalog = []
+        for url in root.findall('ns:url', namespace):
+            loc = url.find('ns:loc', namespace).text
+            lastmod = url.find('ns:lastmod', namespace).text
 
-        for url in root.findall('sitemap:url', namespace):
-            loc_tag = url.find('sitemap:loc', namespace)
-            if loc_tag is None:
-                continue
-
-            loc = loc_tag.text
             if '/product/' in loc:
-                for link in url.findall('xhtml:link', namespace):
-                    if link.attrib.get('hreflang') == 'es-es':
-                        urls.append(link.attrib.get('href').replace("us.shop", "eu.shop"))
-                        break
+                dt = datetime.fromisoformat(lastmod)
+                seconds = int(dt.timestamp())
+                url_name = loc.split('/product/')[-1]
+
+                catalog.append({
+                    "url": loc,
+                    "lastmod": seconds,
+                    "url_name": url_name
+                })
+
+        return catalog
+
     except:
         logger('ERROR', traceback.format_exc())
-
-    return urls
 
 def process_gog_sitemaps():
     try:
@@ -788,32 +789,30 @@ def fetch_battle_catalog():
         url_names.append(game["url_name"])
     coincidences = []
 
-    download_xml_sitemap('https://us.shop.battle.net/sitemap.xml', 'battle.xml')
     battle_catalog = process_battle_sitemaps()
 
     logger('INFO', 'Searching for coincidences between Steam and Battle.net catalogs')
 
-    for url in battle_catalog:
-        url_name = url.split("product/")[1]
+    for game in battle_catalog:
+        url_name = game["url_name"]
         if url_name in url_names:
             coincidences.append({
-                'url': url,
+                'url': game["url"],
                 'url_name': url_name,
                 'price_in_cents': -1,
                 'price_time': -1
             })
 
-    logger('INFO', f'{len(coincidences)} coincidences found')
-
     write_json(os.path.join("temp", "battle_coincidences.json"), coincidences)
 
-    logger('INFO', 'Started crawling Xbox prices')
+    logger('INFO', f'{len(coincidences)} coincidences found')
+
+    logger('INFO', 'Started crawling Battle.net prices')
     try:
         run_crawler('battle')
     except:
         logger('ERROR', traceback.format_exc())
-    logger('INFO', 'Ended crawling Xbox prices')
-
+    logger('INFO', 'Ended crawling Battle.net prices')
 
     logger('INFO', 'Started updating Battle.net prices')
     battle_coincidences = read_json(os.path.join("temp", "battle_coincidences.json"))
@@ -927,9 +926,9 @@ if __name__ == '__main__':
         #fetch_steam_catalog()
         fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490]) # TEST
         fetch_steam_details()
-        #fetch_epic_catalog()
-        # fetch_battle_catalog() # TODO: Currently not available
-        #fetch_xbox_catalog()
+        fetch_epic_catalog()
+        fetch_battle_catalog()
+        fetch_xbox_catalog()
         fetch_gog_catalog()
         finalize()
 

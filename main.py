@@ -944,8 +944,8 @@ if __name__ == '__main__':
     try:
         initialize()
         #fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490]) # TEST
-        fetch_steam_details(25)
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740]) # TEST
+        fetch_steam_details(15)
         fetch_epic_catalog()
         fetch_battle_catalog()
         fetch_xbox_catalog()

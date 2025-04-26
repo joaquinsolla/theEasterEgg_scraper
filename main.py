@@ -119,7 +119,7 @@ def get_url_name(name):
 
 def get_steam_data(data):
     availability = False
-    price_in_cents = -1
+    price_in_cents = None
     price_time = get_time()
     url = None
 
@@ -142,8 +142,8 @@ def get_steam_data(data):
 
 def get_metacritic_data(data):
     metacritic = {
-        "scale": -1,
-        "score": -1,
+        "scale": None,
+        "score": None,
         "url": None,
         "last_fetched": -1
     }
@@ -151,7 +151,7 @@ def get_metacritic_data(data):
     if "metacritic" in data and data["metacritic"]:
         metacritic = {
             "scale": 100,
-            "score": data["metacritic"]["score"] if "score" in data["metacritic"] else -1,
+            "score": data["metacritic"]["score"] if "score" in data["metacritic"] else None,
             "url": data["metacritic"]["url"] if "url" in data["metacritic"] else None,
             "last_fetched": get_time()
         }
@@ -164,6 +164,7 @@ def clean_app_details(data):
     :return:
     """
     data.pop("steam_appid", None)
+    data.pop("name", None)
     data.pop("required_age", None)
     data.pop("detailed_description", None)
     data.pop("capsule_imagev5", None)
@@ -211,6 +212,18 @@ def clean_app_details(data):
     else:
         data["total_recommendations"] = data["recommendations"]["total"] if "total" in data["recommendations"] else 0
         data.pop("recommendations", None)
+
+    if "release_date" not in data:
+        data["release_date"] = None
+    else:
+        if "date" in data["release_date"]:
+            try:
+                data["release_date"]["date"] = int(
+                    datetime.strptime(data["release_date"]["date"], "%d %b, %Y").timestamp())
+            except ValueError:
+                data["release_date"]["date"] = None
+        else:
+            data["release_date"]["date"] = None
 
     if "pc_requirements" not in data or not data["pc_requirements"]:
         data["pc_requirements"] = None
@@ -260,8 +273,8 @@ def update_games_catalog(games):
     old_apps = []
     default_store_json = {
         "availability": False,
-        "price_in_cents": -1,
-        "price_time": -1,
+        "price_in_cents": None,
+        "price_time": None,
         "url": None
     }
     stores = {
@@ -272,8 +285,8 @@ def update_games_catalog(games):
         "gog": default_store_json,
     }
     default_critic_json = {
-        "scale": -1,
-        "score": -1,
+        "scale": None,
+        "score": None,
         "url": None,
         "last_fetched": -1
     }
@@ -507,8 +520,8 @@ def build_xbox_catalog():
                         'url': loc,
                         'lastmod': lastmod,
                         'url_name': loc.split("store/")[1].split("/")[0],
-                        'price_in_cents': -1,
-                        'price_time': -1
+                        'price_in_cents': None,
+                        'price_time': None
                     })
 
         logger('INFO', "Ended updating Xbox catalog")
@@ -754,7 +767,7 @@ def fetch_epic_catalog():
                         })
             else:
                 game["stores"]["epic"]["availability"] = False
-                game["stores"]["epic"]["price_in_cents"] = -1
+                game["stores"]["epic"]["price_in_cents"] = None
                 game["stores"]["epic"]["price_time"] = get_time()
                 game["stores"]["epic"]["url"] = None
 
@@ -804,7 +817,7 @@ def fetch_xbox_catalog():
 
     for game in games:
         if game["url_name"] in xbox_coincidences_dict:
-            if xbox_coincidences_dict[game["url_name"]]["price_in_cents"] != -1:
+            if xbox_coincidences_dict[game["url_name"]]["price_in_cents"] != None:
                 game["stores"]["xbox"]["availability"] = True
                 game["stores"]["xbox"]["price_in_cents"] = xbox_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
@@ -823,7 +836,7 @@ def fetch_xbox_catalog():
                 game["stores"]["xbox"]["url"] = None
         else:
             game["stores"]["xbox"]["availability"] = False
-            game["stores"]["xbox"]["price_in_cents"] = -1
+            game["stores"]["xbox"]["price_in_cents"] = None
             game["stores"]["xbox"]["price_time"] = get_time()
             game["stores"]["xbox"]["url"] = None
 
@@ -852,8 +865,8 @@ def fetch_battle_catalog():
             coincidences.append({
                 'url': game["url"],
                 'url_name': url_name,
-                'price_in_cents': -1,
-                'price_time': -1
+                'price_in_cents': None,
+                'price_time': None
             })
 
     write_json(os.path.join("temp", "battle_coincidences.json"), coincidences)
@@ -873,7 +886,7 @@ def fetch_battle_catalog():
 
     for game in games:
         if game["url_name"] in battle_coincidences_dict:
-            if battle_coincidences_dict[game["url_name"]]["price_in_cents"] != -1:
+            if battle_coincidences_dict[game["url_name"]]["price_in_cents"] != None:
                 game["stores"]["battle"]["availability"] = True
                 game["stores"]["battle"]["price_in_cents"] = battle_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
@@ -887,12 +900,12 @@ def fetch_battle_catalog():
                         })
             else:
                 game["stores"]["battle"]["availability"] = False
-                game["stores"]["battle"]["price_in_cents"] = -1
+                game["stores"]["battle"]["price_in_cents"] = None
                 game["stores"]["battle"]["price_time"] = get_time()
                 game["stores"]["battle"]["url"] = None
         else:
             game["stores"]["battle"]["availability"] = False
-            game["stores"]["battle"]["price_in_cents"] = -1
+            game["stores"]["battle"]["price_in_cents"] = None
             game["stores"]["battle"]["price_time"] = get_time()
             game["stores"]["battle"]["url"] = None
 
@@ -921,8 +934,8 @@ def fetch_gog_catalog():
             coincidences.append({
                 'url': game["url"],
                 'url_name': url_name,
-                'price_in_cents': -1,
-                'price_time': -1
+                'price_in_cents': None,
+                'price_time': None
             })
 
     write_json(os.path.join("temp", "gog_coincidences.json"), coincidences)
@@ -942,7 +955,7 @@ def fetch_gog_catalog():
 
     for game in games:
         if game["url_name"] in gog_coincidences_dict:
-            if gog_coincidences_dict[game["url_name"]]["price_in_cents"] != -1:
+            if gog_coincidences_dict[game["url_name"]]["price_in_cents"] != None:
                 game["stores"]["gog"]["availability"] = True
                 game["stores"]["gog"]["price_in_cents"] = gog_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
@@ -956,12 +969,12 @@ def fetch_gog_catalog():
                         })
             else:
                 game["stores"]["gog"]["availability"] = False
-                game["stores"]["gog"]["price_in_cents"] = -1
+                game["stores"]["gog"]["price_in_cents"] = None
                 game["stores"]["gog"]["price_time"] = get_time()
                 game["stores"]["gog"]["url"] = None
         else:
             game["stores"]["gog"]["availability"] = False
-            game["stores"]["gog"]["price_in_cents"] = -1
+            game["stores"]["gog"]["price_in_cents"] = None
             game["stores"]["gog"]["price_time"] = get_time()
             game["stores"]["gog"]["url"] = None
 

@@ -41,7 +41,7 @@ def get_xbox_price(price_span):
         cents = int(match.group(2))
         return euros * 100 + cents
 
-    return -1
+    return None
 
 def get_battle_prices(self, data):
     """ Función recursiva para extraer todas las claves 'price' de un JSON anidado """
@@ -113,7 +113,7 @@ class CrawlerSpider(Spider):
                             if game_pass_label and "incluido con game pass" in game_pass_label.lower().strip():
                                 current_price_in_cents = -2
                             else:
-                                current_price_in_cents = -1
+                                current_price_in_cents = None
 
                         current_url_name = response.url.split("store/")[1].split("/")[0]
                         if current_url_name in self.coincidences_dict:
@@ -134,7 +134,7 @@ class CrawlerSpider(Spider):
                             prices_int = battle_prices_list_string_to_list_int(prices_string)
                             current_price_in_cents = min(prices_int)
                         else:
-                            current_price_in_cents = -1
+                            current_price_in_cents = None
 
                         current_url_name = response.url.split("product/")[1]
                         if current_url_name in self.coincidences_dict:
@@ -148,7 +148,7 @@ class CrawlerSpider(Spider):
                 case "gog":
                     try:
                         if response.url != 'https://www.gog.com/en/games':
-                            price_in_cents = -1
+                            price_in_cents = None
                             json_ld_script = response.xpath('//script[@type="application/ld+json"]/text()').get()
                             if json_ld_script:
                                 data = json.loads(json_ld_script)

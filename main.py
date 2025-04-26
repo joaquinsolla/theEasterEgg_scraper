@@ -19,12 +19,14 @@ def initialize():
     Creates the needed set of folders and files for the execution.
     """
     json_data_folder = os.path.join(parent_path, "json_data")
+    ndjson_data_folder = os.path.join(parent_path, "ndjson_data")
     xml_sitemaps_folder = os.path.join(parent_path, "xml_sitemaps")
     xbox_sitemaps_folder = os.path.join(parent_path, "xml_sitemaps", "xbox")
     json_temp_folder = os.path.join(parent_path, "json_data", "temp")
 
     folders = [
         json_data_folder,
+        ndjson_data_folder,
         xml_sitemaps_folder,
         xbox_sitemaps_folder,
         json_temp_folder
@@ -180,14 +182,44 @@ def clean_app_details(data):
 
     if "developers" not in data:
         data["developers"] = []
+
     if "publishers" not in data:
         data["publishers"] = []
+
     if "genres" not in data:
         data["genres"] = []
+    else:
+        data["genres"] = [item["description"] for item in data["genres"]]
+
     if "categories" not in data:
         data["categories"] = []
+    else:
+        data["categories"] = [item["description"] for item in data["categories"]]
 
-    # Screenshot
+    if "platforms" not in data:
+        data["availability_windows"] = False
+        data["availability_mac"] = False
+        data["availability_linux"] = False
+    else:
+        data["availability_windows"] = data["platforms"]["windows"] if "windows" in data["platforms"] else False
+        data["availability_mac"] = data["platforms"]["mac"] if "mac" in data["platforms"] else False
+        data["availability_linux"] = data["platforms"]["linux"] if "linux" in data["platforms"] else False
+        data.pop("platforms", None)
+
+    if "recommendations" not in data:
+        data["total_recommendations"] = 0
+    else:
+        data["total_recommendations"] = data["recommendations"]["total"] if "total" in data["recommendations"] else 0
+        data.pop("recommendations", None)
+
+    if "pc_requirements" not in data or not data["pc_requirements"]:
+        data["pc_requirements"] = None
+    if "mac_requirements" not in data or not data["mac_requirements"]:
+        data["mac_requirements"] = None
+    if "linux_requirements" not in data or not data["linux_requirements"]:
+        data["linux_requirements"] = None
+
+    # Screenshots
     if "screenshots" in data and data["screenshots"]:
         data["screenshots"] = [s["path_full"] for s in data["screenshots"] if "path_full" in s]
     else:
@@ -245,10 +277,10 @@ def update_games_catalog(games):
         "url": None,
         "last_fetched": -1
     }
-    critics = {
-        "metacritic": default_critic_json,
-        "opencritic": default_critic_json,
-    }
+    #critics = {
+    #    "metacritic": default_critic_json,
+    #    "opencritic": default_critic_json,
+    #}
     if os.path.getsize(os.path.join(parent_path, "json_data", "games.json")) > 0:
         old_apps = read_json('games.json')
 
@@ -265,8 +297,8 @@ def update_games_catalog(games):
                 app["url_name"] = old_entry["url_name"]
             if "stores" in old_entry:
                 app["stores"] = old_entry["stores"]
-            if "critics" in old_entry:
-                app["critics"] = old_entry["critics"]
+            if "metacritic" in old_entry:
+                app["metacritic"] = old_entry["metacritic"]
             if "data" in old_entry:
                 app["data"] = old_entry["data"]
         old_apps_dict[appid] = app
@@ -278,8 +310,8 @@ def update_games_catalog(games):
             app["url_name"] = get_url_name(app["name"])
         if "stores" not in app:
             app["stores"] = stores
-        if "critics" not in app:
-            app["critics"] = critics
+        if "metacritic" not in app:
+            app["metacritic"] = default_critic_json
         if "data" not in app:
             app["data"] = []
 
@@ -583,15 +615,16 @@ def fetch_steam_details(limit=None):
                         # Games
                         app["last_fetched"] = get_time()
                         app["stores"]["steam"] = get_steam_data(data["data"])
-                        app["critics"]["metacritic"] = get_metacritic_data(data["data"])
+                        #app["critics"]["metacritic"] = get_metacritic_data(data["data"])
+                        app["metacritic"] = get_metacritic_data(data["data"])
                         app["data"] = clean_app_details(data["data"])
                         logger('INFO', f'Fetched details for app {appid}', response_get_app_details.status_code)
                         # Genres
                         if "genres" in app["data"]:
-                            genres.extend(item for item in app["data"]["genres"] if item not in genres)
+                            genres.extend(item for item in app["data"]["genres"]if item not in genres)
                         # Categories
                         if "categories" in app["data"]:
-                            categories.extend(item for item in app["data"]["categories"] if item not in categories)
+                            categories.extend(item for item in app["data"]["categories"]if item not in categories)
                         # Developers
                         if "developers" in app["data"]:
                             developers.extend(item for item in app["data"]["developers"] if item not in developers)
@@ -938,7 +971,19 @@ def fetch_gog_catalog():
 
     logger('INFO', 'Ended updating gog.com prices')
 
+def json_to_ndjson(input_filename, output_filename):
+    data = read_json(input_filename)
+    file_path = os.path.join(parent_path, 'ndjson_data', output_filename)
+    with open(file_path, 'w', encoding='utf-8') as f:
+        for item in data:
+            appid = item.get("appid")
+            if appid is not None:
+                meta_line = json.dumps({ "create": { "_id": appid } })
+                doc_line = json.dumps(item, ensure_ascii=False)
+                f.write(meta_line + "\n")
+                f.write(doc_line + "\n")
 
+        logger(f'INFO', f'Formatted JSON file {input_filename} to NDJSON {output_filename}.')
 
 if __name__ == '__main__':
     try:
@@ -950,6 +995,7 @@ if __name__ == '__main__':
         fetch_battle_catalog()
         fetch_xbox_catalog()
         fetch_gog_catalog()
+        json_to_ndjson("games.json", "games_bulk.ndjson")
         finalize()
 
     except:

@@ -645,7 +645,7 @@ def fetch_steam_details(limit=None):
                         if "publishers" in app["data"]:
                             publishers.extend(item for item in app["data"]["publishers"] if item not in publishers)
                         # Prices history (Steam)
-                        if app["stores"]["steam"]["price_in_cents"] >= 0:
+                        if app["stores"]["steam"]["price_in_cents"] is not None and app["stores"]["steam"]["price_in_cents"] >= 0:
                             if appid in prices_history_dict:
                                 prices_history_dict[appid]["steam"].append({
                                     "price_in_cents": app["stores"]["steam"]["price_in_cents"],
@@ -674,7 +674,7 @@ def fetch_steam_details(limit=None):
                 break
             else:
                 # Prices history (Steam)
-                if app["stores"]["steam"]["price_in_cents"] >= 0:
+                if app["stores"]["steam"]["price_in_cents"] is not None and app["stores"]["steam"]["price_in_cents"] >= 0:
                     if appid in prices_history_dict:
                         prices_history_dict[appid]["steam"].append({
                             "price_in_cents": app["stores"]["steam"]["price_in_cents"],
@@ -759,7 +759,7 @@ def fetch_epic_catalog():
                 game["stores"]["epic"]["price_time"] = get_time()
                 game["stores"]["epic"]["url"] = "https://store.epicgames.com/es-ES/p/" + game["url_name"]
                 # Prices history (Epic)
-                if game["stores"]["epic"]["price_in_cents"] >= 0:
+                if game["stores"]["epic"]["price_in_cents"] is not None and game["stores"]["epic"]["price_in_cents"] >= 0:
                     if game["appid"] in prices_history_dict:
                         prices_history_dict[game["appid"]]["epic"].append({
                             "price_in_cents": game["stores"]["epic"]["price_in_cents"],
@@ -823,7 +823,7 @@ def fetch_xbox_catalog():
                 game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["xbox"]["url"] = xbox_coincidences_dict[game["url_name"]]["url"]
                 # Prices history (Xbox)
-                if game["stores"]["xbox"]["price_in_cents"] >= 0:
+                if game["stores"]["xbox"]["price_in_cents"] is not None and game["stores"]["xbox"]["price_in_cents"] >= 0:
                     if game["appid"] in prices_history_dict:
                         prices_history_dict[game["appid"]]["xbox"].append({
                             "price_in_cents": game["stores"]["xbox"]["price_in_cents"],
@@ -892,7 +892,7 @@ def fetch_battle_catalog():
                 game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["battle"]["url"] = battle_coincidences_dict[game["url_name"]]["url"]
                 # Prices history (Battle)
-                if game["stores"]["battle"]["price_in_cents"] >= 0:
+                if game["stores"]["battle"]["price_in_cents"] is not None and game["stores"]["battle"]["price_in_cents"] >= 0:
                     if game["appid"] in prices_history_dict:
                         prices_history_dict[game["appid"]]["battle"].append({
                             "price_in_cents": game["stores"]["battle"]["price_in_cents"],
@@ -961,7 +961,7 @@ def fetch_gog_catalog():
                 game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["gog"]["url"] = gog_coincidences_dict[game["url_name"]]["url"]
                 # Prices history (gog)
-                if game["stores"]["gog"]["price_in_cents"] >= 0:
+                if game["stores"]["gog"]["price_in_cents"] is not None and game["stores"]["gog"]["price_in_cents"] >= 0:
                     if game["appid"] in prices_history_dict:
                         prices_history_dict[game["appid"]]["gog"].append({
                             "price_in_cents": game["stores"]["gog"]["price_in_cents"],
@@ -1002,8 +1002,8 @@ if __name__ == '__main__':
     try:
         initialize()
         #fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740]) # TEST
-        fetch_steam_details(15)
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
+        fetch_steam_details()
         fetch_epic_catalog()
         fetch_battle_catalog()
         fetch_xbox_catalog()

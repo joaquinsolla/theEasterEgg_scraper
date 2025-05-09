@@ -1,0 +1,25 @@
+version: '3.7'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false  # Seguridad deshabilitada para desarrollo
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    volumes:
+      - ./config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml  # Monta el archivo de configuración
+      - elasticsearch-data:/usr/share/elasticsearch/data  # Persistir datos
+    ports:
+      - "9200:9200"  # Exponer el puerto 9200
+    networks:
+      - elastic
+    restart: always
+
+volumes:
+  elasticsearch-data:  # Define un volumen persistente para los datos
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge

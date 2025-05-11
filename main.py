@@ -998,6 +998,20 @@ def json_to_ndjson(input_filename, output_filename):
 
         logger(f'INFO', f'Formatted JSON file {input_filename} to NDJSON {output_filename}.')
 
+def json_list_to_ndjson(input_filename, output_filename):
+    data = read_json(input_filename)
+    formatted_data = [{"name": g} for g in data]
+    file_path = os.path.join(parent_path, 'ndjson_data', output_filename)
+    i = 0
+    with open(file_path, 'w', encoding='utf-8') as f:
+        for item in formatted_data:
+            meta_line = json.dumps({"create": {"_id": i}})
+            doc_line = json.dumps(item, ensure_ascii=False)
+            f.write(meta_line + "\n")
+            f.write(doc_line + "\n")
+
+        logger(f'INFO', f'Formatted JSON file {input_filename} to NDJSON {output_filename}.')
+
 if __name__ == '__main__':
     try:
         initialize()
@@ -1009,6 +1023,10 @@ if __name__ == '__main__':
         fetch_xbox_catalog()
         fetch_gog_catalog()
         json_to_ndjson("games.json", "games_bulk.ndjson")
+        json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
+        json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
+        json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
+        json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
         finalize()
 
     except:

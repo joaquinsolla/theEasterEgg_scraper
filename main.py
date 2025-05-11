@@ -1009,6 +1009,7 @@ def json_list_to_ndjson(input_filename, output_filename):
             doc_line = json.dumps(item, ensure_ascii=False)
             f.write(meta_line + "\n")
             f.write(doc_line + "\n")
+            i+=1
 
         logger(f'INFO', f'Formatted JSON file {input_filename} to NDJSON {output_filename}.')
 

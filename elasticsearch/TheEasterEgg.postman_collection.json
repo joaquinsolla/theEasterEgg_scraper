@@ -1488,7 +1488,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"create\": {\"_id\": 0}}\n{\"name\": \"Not rated\"}\n{\"create\": {\"_id\": 1}}\n{\"name\": \"1\"}\n{\"create\": {\"_id\": 2}}\n{\"name\": \"8\"}\n{\"create\": {\"_id\": 3}}\n{\"name\": \"6\"}\n{\"create\": {\"_id\": 4}}\n{\"name\": \"7\"}\n{\"create\": {\"_id\": 5}}\n{\"name\": \"3\"}\n"
+							"raw": "{\"create\": {\"_id\": 0}}\n{\"name\": \"18\"}\n{\"create\": {\"_id\": 1}}\n{\"name\": \"16\"}\n{\"create\": {\"_id\": 2}}\n{\"name\": \"7\"}\n{\"create\": {\"_id\": 3}}\n{\"name\": \"3\"}\n"
 						},
 						"url": {
 							"raw": "http://localhost:9200/theeasteregg_pegi_index/_bulk",

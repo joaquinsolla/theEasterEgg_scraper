@@ -649,10 +649,7 @@ def fetch_steam_details(limit=None):
                         # PEGI
                         if "pegi" in app["data"] and "rating" in app["data"]["pegi"]:
                             rating = app["data"]["pegi"]["rating"]
-                            if rating is None:
-                                if "No rated" not in pegi:
-                                    pegi.append("No rated")
-                            else:
+                            if rating is not None:
                                 if isinstance(rating, list):
                                     pegi.extend(item for item in rating if item not in pegi)
                                 else:

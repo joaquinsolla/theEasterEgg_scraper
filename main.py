@@ -648,11 +648,17 @@ def fetch_steam_details(limit=None):
                             publishers.extend(item for item in app["data"]["publishers"] if item not in publishers)
                         # PEGI
                         if "pegi" in app["data"] and "rating" in app["data"]["pegi"]:
-                            if app["data"]["pegi"]["rating"] is None:
-                                if "Not rated" not in pegi:
+                            rating = app["data"]["pegi"]["rating"]
+                            if rating is None:
+                                if "No rated" not in pegi:
                                     pegi.append("No rated")
                             else:
-                                pegi.extend(item for item in app["data"]["pegi"]["rating"] if item not in pegi)
+                                if isinstance(rating, list):
+                                    pegi.extend(item for item in rating if item not in pegi)
+                                else:
+                                    if rating not in pegi:
+                                        pegi.append(rating)
+
                         # Prices history (Steam)
                         if app["stores"]["steam"]["price_in_cents"] is not None and app["stores"]["steam"]["price_in_cents"] >= 0:
                             if appid in prices_history_dict:

@@ -159,6 +159,16 @@ def get_metacritic_data(data):
 
     return metacritic
 
+def extract_year(date_str):
+    date_formats = ["%d %b, %Y", "%b %d, %Y"]
+
+    for fmt in date_formats:
+        try:
+            return datetime.strptime(date_str, fmt).year
+        except ValueError:
+            continue
+    return None
+
 def clean_app_details(data):
     """
     :param data:
@@ -219,6 +229,11 @@ def clean_app_details(data):
     else:
         if "date" in data["release_date"]:
             try:
+                year = extract_year(data["release_date"]["date"])
+                if year:
+                    data["release_date"]["year"] = year
+                else:
+                    data["release_date"]["year"] = None
                 data["release_date"]["date"] = int(
                     datetime.strptime(data["release_date"]["date"], "%d %b, %Y").timestamp())
             except ValueError:

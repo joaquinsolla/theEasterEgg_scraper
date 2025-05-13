@@ -44,6 +44,7 @@ def initialize():
         os.path.join(json_data_folder, "categories.json"),
         os.path.join(json_data_folder, "developers.json"),
         os.path.join(json_data_folder, "publishers.json"),
+        os.path.join(json_data_folder, "pegi.json"),
         os.path.join(xml_sitemaps_folder, "xbox.xml"),
         os.path.join(xml_sitemaps_folder, "battle.xml"),
         os.path.join(xml_sitemaps_folder, "gog.xml"),
@@ -611,6 +612,7 @@ def fetch_steam_details(limit=None):
     categories = read_json('categories.json')
     developers = read_json('developers.json')
     publishers = read_json('publishers.json')
+    pegi = read_json('pegi.json')
     prices_history = read_json('prices_history.json')
     prices_history_dict = {entry["appid"]: entry for entry in prices_history}
     count = 0
@@ -644,6 +646,13 @@ def fetch_steam_details(limit=None):
                         # Publishers
                         if "publishers" in app["data"]:
                             publishers.extend(item for item in app["data"]["publishers"] if item not in publishers)
+                        # PEGI
+                        if "pegi" in app["data"] and "rating" in app["data"]["pegi"]:
+                            if app["data"]["pegi"]["rating"] is None:
+                                if "Not rated" not in pegi:
+                                    pegi.append("No rated")
+                            else:
+                                pegi.extend(item for item in app["data"]["pegi"]["rating"] if item not in pegi)
                         # Prices history (Steam)
                         if app["stores"]["steam"]["price_in_cents"] is not None and app["stores"]["steam"]["price_in_cents"] >= 0:
                             if appid in prices_history_dict:
@@ -693,6 +702,7 @@ def fetch_steam_details(limit=None):
     write_json('categories.json', categories)
     write_json('developers.json', developers)
     write_json('publishers.json', publishers)
+    write_json('pegi.json', pegi)
     write_json('prices_history.json', list(prices_history_dict.values()))
     logger('INFO', 'Ended updating JSON files')
 
@@ -1028,6 +1038,7 @@ if __name__ == '__main__':
         json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
         json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
         json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
+        json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
         finalize()
 
     except:

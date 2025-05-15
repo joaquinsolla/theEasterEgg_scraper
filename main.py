@@ -738,7 +738,7 @@ def fetch_epic_catalog():
     epic_catalog = []
     coincidences = []
     start = 0
-    items_per_request = 1000
+    items_per_request = 40 # New API limit
 
     try:
         while True:

@@ -250,13 +250,13 @@ def clean_app_details(data):
 
     # Screenshots
     if "screenshots" in data and data["screenshots"]:
-        data["screenshots"] = [s["path_full"] for s in data["screenshots"] if "path_full" in s]
+        data["screenshots"] = [s["path_full"] for s in data["screenshots"] if "path_full" in s][::-1]
     else:
         data["screenshots"] = []
 
     # Movies
     if "movies" in data and data["movies"]:
-        data["movies"] = data["movies"][-3:]
+        data["movies"] = data["movies"][-3:][::-1]
         for movie in data["movies"]:
             for key in ["name", "webm", "mp4", "highlight"]:
                 movie.pop(key, None)
@@ -1057,6 +1057,7 @@ if __name__ == '__main__':
         json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
         json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
         json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
+        json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
         finalize()
 
     except:

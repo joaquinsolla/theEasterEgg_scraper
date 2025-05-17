@@ -1,6 +1,6 @@
 screenshots
           "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2933620/ss_08bf594c699b142e6e053064be8f8678e8b39877.600x338.jpg?t=1738088305",
-          "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2933620/ss_08bf594c699b142e6e053064be8f8678e8b39877.1920x1080.jpg?t=1738088305"
+          "path_full":      "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2933620/ss_08bf594c699b142e6e053064be8f8678e8b39877.1920x1080.jpg?t=1738088305"
 
 movies
           "id": 257092650,

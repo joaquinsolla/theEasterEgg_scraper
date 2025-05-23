@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 
 parent_path = './' # Default
 #parent_path = '/home/raspy/Desktop/theEasterEgg_scraper/' # Crontab
+history_limit = 10
 
 def initialize():
     """
@@ -673,11 +674,14 @@ def fetch_steam_details(limit=None):
 
                         # Prices history (Steam)
                         if app["stores"]["steam"]["price_in_cents"] is not None and app["stores"]["steam"]["price_in_cents"] >= 0:
+                            new_price = {
+                                "price_in_cents": app["stores"]["steam"]["price_in_cents"],
+                                "price_time": app["stores"]["steam"]["price_time"],
+                            }
                             if appid in prices_history_dict:
-                                prices_history_dict[appid]["steam"].append({
-                                    "price_in_cents": app["stores"]["steam"]["price_in_cents"],
-                                    "price_time": app["stores"]["steam"]["price_time"],
-                                })
+                                if len(prices_history_dict[appid]["steam"]) >= history_limit:
+                                    prices_history_dict[appid]["steam"].pop(0)
+                                prices_history_dict[appid]["steam"].append(new_price)
 
                     else:
                         logger('INFO', f'Cannot fetch details for app {appid}: Not available', response_get_app_details.status_code)
@@ -702,11 +706,14 @@ def fetch_steam_details(limit=None):
             else:
                 # Prices history (Steam)
                 if app["stores"]["steam"]["price_in_cents"] is not None and app["stores"]["steam"]["price_in_cents"] >= 0:
-                    if appid in prices_history_dict:
-                        prices_history_dict[appid]["steam"].append({
+                    new_price = {
                             "price_in_cents": app["stores"]["steam"]["price_in_cents"],
                             "price_time": get_time(),
-                        })
+                    }
+                    if appid in prices_history_dict:
+                        if len(prices_history_dict[appid]["steam"]) >= history_limit:
+                            prices_history_dict[appid]["steam"].pop(0)
+                        prices_history_dict[appid]["steam"].append(new_price)
 
                 logger('INFO', f'Skipped app {appid}: Already up to date')
     except:
@@ -743,14 +750,20 @@ def fetch_epic_catalog():
     try:
         while True:
             response = api.fetch_store_games(count=items_per_request, start=start, allow_countries='ES', with_price=True)
-            if "data" in response and "Catalog" in response["data"] and "searchStore" in response["data"]["Catalog"] and "elements" in response["data"]["Catalog"]["searchStore"]:
-                games_chunk = response["data"]["Catalog"]["searchStore"]["elements"]
-                epic_catalog.extend(games_chunk)
-                start += items_per_request
-                if len(games_chunk) < items_per_request:
+            try:
+                if "data" in response and "Catalog" in response["data"] and "searchStore" in response["data"][
+                    "Catalog"] and "elements" in response["data"]["Catalog"]["searchStore"]:
+                    games_chunk = response["data"]["Catalog"]["searchStore"]["elements"]
+                    epic_catalog.extend(games_chunk)
+                    start += items_per_request
+                    if len(games_chunk) < items_per_request:
+                        break
+                else:
                     break
-            else:
+            except ValueError:
+                logger('ERROR', traceback.format_exc())
                 break
+
         logger('INFO', 'Ended fetching Epic Games catalog')
 
     except:
@@ -788,11 +801,15 @@ def fetch_epic_catalog():
                 game["stores"]["epic"]["url"] = "https://store.epicgames.com/es-ES/p/" + game["url_name"]
                 # Prices history (Epic)
                 if game["stores"]["epic"]["price_in_cents"] is not None and game["stores"]["epic"]["price_in_cents"] >= 0:
-                    if game["appid"] in prices_history_dict:
-                        prices_history_dict[game["appid"]]["epic"].append({
+                    new_price = {
                             "price_in_cents": game["stores"]["epic"]["price_in_cents"],
                             "price_time": game["stores"]["epic"]["price_time"],
-                        })
+                    }
+                    if game["appid"] in prices_history_dict:
+                        if len(prices_history_dict[game["appid"]]["epic"]) >= history_limit:
+                            prices_history_dict[game["appid"]]["epic"].pop(0)
+                        prices_history_dict[game["appid"]]["epic"].append(new_price)
+
             else:
                 game["stores"]["epic"]["availability"] = False
                 game["stores"]["epic"]["price_in_cents"] = None
@@ -845,18 +862,22 @@ def fetch_xbox_catalog():
 
     for game in games:
         if game["url_name"] in xbox_coincidences_dict:
-            if xbox_coincidences_dict[game["url_name"]]["price_in_cents"] != None:
+            if xbox_coincidences_dict[game["url_name"]]["price_in_cents"] is not None:
                 game["stores"]["xbox"]["availability"] = True
                 game["stores"]["xbox"]["price_in_cents"] = xbox_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["xbox"]["price_time"] = xbox_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["xbox"]["url"] = xbox_coincidences_dict[game["url_name"]]["url"]
                 # Prices history (Xbox)
                 if game["stores"]["xbox"]["price_in_cents"] is not None and game["stores"]["xbox"]["price_in_cents"] >= 0:
-                    if game["appid"] in prices_history_dict:
-                        prices_history_dict[game["appid"]]["xbox"].append({
+                    new_price = {
                             "price_in_cents": game["stores"]["xbox"]["price_in_cents"],
                             "price_time": game["stores"]["xbox"]["price_time"],
-                        })
+                    }
+                    if game["appid"] in prices_history_dict:
+                        if len(prices_history_dict[game["appid"]]["xbox"]) >= history_limit:
+                            prices_history_dict[game["appid"]]["xbox"].pop(0)
+                        prices_history_dict[game["appid"]]["xbox"].append(new_price)
+
             else:
                 game["stores"]["xbox"]["availability"] = False
                 game["stores"]["xbox"]["price_in_cents"] = xbox_coincidences_dict[game["url_name"]]["price_in_cents"]
@@ -914,18 +935,22 @@ def fetch_battle_catalog():
 
     for game in games:
         if game["url_name"] in battle_coincidences_dict:
-            if battle_coincidences_dict[game["url_name"]]["price_in_cents"] != None:
+            if battle_coincidences_dict[game["url_name"]]["price_in_cents"] is not None:
                 game["stores"]["battle"]["availability"] = True
                 game["stores"]["battle"]["price_in_cents"] = battle_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["battle"]["price_time"] = battle_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["battle"]["url"] = battle_coincidences_dict[game["url_name"]]["url"]
                 # Prices history (Battle)
                 if game["stores"]["battle"]["price_in_cents"] is not None and game["stores"]["battle"]["price_in_cents"] >= 0:
-                    if game["appid"] in prices_history_dict:
-                        prices_history_dict[game["appid"]]["battle"].append({
+                    new_price = {
                             "price_in_cents": game["stores"]["battle"]["price_in_cents"],
                             "price_time": game["stores"]["battle"]["price_time"],
-                        })
+                    }
+                    if game["appid"] in prices_history_dict:
+                        if len(prices_history_dict[game["appid"]]["battle"]) >= history_limit:
+                            prices_history_dict[game["appid"]]["battle"].pop(0)
+                        prices_history_dict[game["appid"]]["battle"].append(new_price)
+
             else:
                 game["stores"]["battle"]["availability"] = False
                 game["stores"]["battle"]["price_in_cents"] = None
@@ -983,18 +1008,21 @@ def fetch_gog_catalog():
 
     for game in games:
         if game["url_name"] in gog_coincidences_dict:
-            if gog_coincidences_dict[game["url_name"]]["price_in_cents"] != None:
+            if gog_coincidences_dict[game["url_name"]]["price_in_cents"] is not None:
                 game["stores"]["gog"]["availability"] = True
                 game["stores"]["gog"]["price_in_cents"] = gog_coincidences_dict[game["url_name"]]["price_in_cents"]
                 game["stores"]["gog"]["price_time"] = gog_coincidences_dict[game["url_name"]]["price_time"]
                 game["stores"]["gog"]["url"] = gog_coincidences_dict[game["url_name"]]["url"]
                 # Prices history (gog)
                 if game["stores"]["gog"]["price_in_cents"] is not None and game["stores"]["gog"]["price_in_cents"] >= 0:
-                    if game["appid"] in prices_history_dict:
-                        prices_history_dict[game["appid"]]["gog"].append({
+                    new_price = {
                             "price_in_cents": game["stores"]["gog"]["price_in_cents"],
                             "price_time": game["stores"]["gog"]["price_time"],
-                        })
+                    }
+                    if game["appid"] in prices_history_dict:
+                        if len(prices_history_dict[game["appid"]]["gog"]) >= history_limit:
+                            prices_history_dict[game["appid"]]["gog"].pop(0)
+                        prices_history_dict[game["appid"]]["gog"].append(new_price)
             else:
                 game["stores"]["gog"]["availability"] = False
                 game["stores"]["gog"]["price_in_cents"] = None

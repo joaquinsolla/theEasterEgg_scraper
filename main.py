@@ -655,7 +655,11 @@ def fetch_steam_details(limit=None):
                             genres.extend(item for item in app["data"]["genres"]if item not in genres)
                         # Categories
                         if "categories" in app["data"]:
-                            categories.extend(item for item in app["data"]["categories"]if item not in categories)
+                            categories.extend(item for item in app["data"]["categories"]if (
+                                    item not in categories and
+                                    "valve" not in item.lower() and
+                                    "steam" not in item.lower()
+                            ))
                         # Developers
                         if "developers" in app["data"]:
                             developers.extend(item for item in app["data"]["developers"] if item not in developers)
@@ -1069,24 +1073,415 @@ def json_list_to_ndjson(input_filename, output_filename):
 
         logger(f'INFO', f'Formatted JSON file {input_filename} to NDJSON {output_filename}.')
 
+def postGamesIndex():
+    def deleteIndex():
+        url = "http://localhost:9200/theeasteregg_games_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.delete(url, headers=headers)
+        logger('INFO', f'Games index: Delete', f'{response.status_code}')
+
+    def createIndex():
+        url = "http://localhost:9200/theeasteregg_games_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.put(url, headers=headers)
+        logger('INFO', f'Games index: Create', f'{response.status_code}')
+
+    def closeIndex():
+        url = "http://localhost:9200/theeasteregg_games_index/_close"
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        response = requests.post(url, headers=headers)
+        logger('INFO', f'Games index: Close', f'{response.status_code}')
+
+    def configNgramsAndSynonyms():
+        url = "http://localhost:9200/theeasteregg_games_index/_settings"
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "settings": {
+                "index": {
+                    "max_ngram_diff": 3
+                },
+                "analysis": {
+                    "char_filter": {
+                        "replace_specials": {
+                            "type": "mapping",
+                            "mappings": [
+                                "& => and",
+                                "- => ",
+                                "_ => ",
+                                "'s => s",
+                                "'d => d",
+                                "v.s. => versus",
+                                "vs => versus",
+                                "ep. => episode"
+                            ]
+                        }
+                    },
+                    "filter": {
+                        "ngram_filter": {
+                            "type": "ngram",
+                            "min_gram": 2,
+                            "max_gram": 3,
+                            "token_chars": ["letter", "digit"]
+                        },
+                        "synonym_filter": {
+                            "type": "synonym",
+                            "synonyms": [
+                                "i => 1",
+                                "ii => 2",
+                                "iii => 3",
+                                "iv => 4",
+                                "v => 5",
+                                "vi => 6",
+                                "vii => 7",
+                                "viii => 8",
+                                "ix => 9",
+                                "x => 10",
+                                "xi => 11",
+                                "xii => 12",
+                                "xiii => 13",
+                                "xiv => 14",
+                                "xv => 15",
+                                "xvi => 16",
+                                "xvii => 17",
+                                "xviii => 18",
+                                "xix => 19",
+                                "xx => 20"
+                            ]
+                        }
+                    },
+                    "analyzer": {
+                        "ngram_analyzer": {
+                            "type": "custom",
+                            "char_filter": [
+                                "replace_specials"
+                            ],
+                            "tokenizer": "standard",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding",
+                                "synonym_filter",
+                                "ngram_filter"
+                            ]
+                        },
+                        "whitespace_analyzer": {
+                            "type": "custom",
+                            "char_filter": [
+                                "replace_specials"
+                            ],
+                            "tokenizer": "whitespace",
+                            "filter": [
+                                "lowercase",
+                                "asciifolding",
+                                "synonym_filter"
+                            ]
+                        }
+                    },
+                    "normalizer": {
+                        "lowercase_normalizer": {
+                            "type": "custom",
+                            "filter": ["lowercase"]
+                        }
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, data=json.dumps(payload))
+        logger('INFO', f'Games index: Configure', f'{response.status_code}')
+
+    def openIndex():
+        url = "http://localhost:9200/theeasteregg_games_index/_open"
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        response = requests.post(url, headers=headers)
+        logger('INFO', f'Games index: Open', f'{response.status_code}')
+
+    def mapData():
+        url = "http://localhost:9200/theeasteregg_games_index/_mapping"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json",
+        }
+
+        body = {
+            "properties": {
+                "appid": {
+                    "type": "integer",
+                    "index": False
+                },
+                "name": {
+                    "type": "text",
+                    "analyzer": "ngram_analyzer",
+                    "search_analyzer": "whitespace_analyzer",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 100
+                        },
+                        "sort": {
+                            "type": "keyword",
+                            "normalizer": "lowercase_normalizer"
+                        }
+                    }
+                },
+                "last_modified": {
+                    "type": "date",
+                    "format": "epoch_second",
+                    "index": False
+                },
+                "last_fetched": {
+                    "type": "date",
+                    "format": "epoch_second",
+                    "index": False
+                },
+                "url_name": {
+                    "type": "keyword",
+                    "index": False
+                },
+                "stores": {
+                    "type": "object",
+                    "properties": {
+                        "steam": {
+                            "properties": {
+                                "availability": {"type": "boolean"},
+                                "price_in_cents": {"type": "integer"},
+                                "price_time": {
+                                    "type": "date",
+                                    "format": "epoch_second",
+                                    "index": False
+                                },
+                                "url": {"type": "keyword", "index": False}
+                            }
+                        },
+                        "epic": {
+                            "properties": {
+                                "availability": {"type": "boolean"},
+                                "price_in_cents": {"type": "integer"},
+                                "price_time": {
+                                    "type": "date",
+                                    "format": "epoch_second",
+                                    "index": False
+                                },
+                                "url": {"type": "keyword", "index": False}
+                            }
+                        },
+                        "xbox": {
+                            "properties": {
+                                "availability": {"type": "boolean"},
+                                "price_in_cents": {"type": "integer"},
+                                "price_time": {
+                                    "type": "date",
+                                    "format": "epoch_second",
+                                    "index": False
+                                },
+                                "url": {"type": "keyword", "index": False}
+                            }
+                        },
+                        "battle": {
+                            "properties": {
+                                "availability": {"type": "boolean"},
+                                "price_in_cents": {"type": "integer"},
+                                "price_time": {
+                                    "type": "date",
+                                    "format": "epoch_second",
+                                    "index": False
+                                },
+                                "url": {"type": "keyword", "index": False}
+                            }
+                        },
+                        "gog": {
+                            "properties": {
+                                "availability": {"type": "boolean"},
+                                "price_in_cents": {"type": "integer"},
+                                "price_time": {
+                                    "type": "date",
+                                    "format": "epoch_second",
+                                    "index": False
+                                },
+                                "url": {"type": "keyword", "index": False}
+                            }
+                        }
+                    }
+                },
+                "metacritic": {
+                    "properties": {
+                        "scale": {"type": "integer", "index": False},
+                        "score": {"type": "integer", "index": False},
+                        "url": {"type": "keyword", "index": False},
+                        "last_fetched": {
+                            "type": "date",
+                            "format": "epoch_second",
+                            "index": False
+                        }
+                    }
+                },
+                "data": {
+                    "properties": {
+                        "type": {"type": "keyword", "index": False},
+                        "is_free": {"type": "boolean", "index": False},
+                        "about_the_game": {"type": "text", "index": False},
+                        "short_description": {"type": "text", "index": False},
+                        "supported_languages": {"type": "text", "index": False},
+                        "header_image": {"type": "keyword", "index": False},
+                        "capsule_image": {"type": "keyword", "index": False},
+                        "website": {"type": "keyword", "index": False},
+                        "pc_requirements": {
+                            "properties": {
+                                "minimum": {"type": "text", "index": False},
+                                "recommended": {"type": "text", "index": False}
+                            }
+                        },
+                        "mac_requirements": {
+                            "properties": {
+                                "minimum": {"type": "text", "index": False},
+                                "recommended": {"type": "text", "index": False}
+                            }
+                        },
+                        "linux_requirements": {
+                            "properties": {
+                                "minimum": {"type": "text", "index": False},
+                                "recommended": {"type": "text", "index": False}
+                            }
+                        },
+                        "legal_notice": {"type": "text", "index": False},
+                        "developers": {
+                            "type": "text",
+                            "analyzer": "ngram_analyzer",
+                            "search_analyzer": "whitespace_analyzer",
+                            "fields": {
+                                "keyword": {"type": "keyword", "ignore_above": 50}
+                            }
+                        },
+                        "publishers": {
+                            "type": "text",
+                            "analyzer": "ngram_analyzer",
+                            "search_analyzer": "whitespace_analyzer",
+                            "fields": {
+                                "keyword": {"type": "keyword", "ignore_above": 50}
+                            }
+                        },
+                        "categories": {
+                            "type": "text",
+                            "analyzer": "ngram_analyzer",
+                            "search_analyzer": "whitespace_analyzer",
+                            "fields": {
+                                "keyword": {"type": "keyword", "ignore_above": 50}
+                            }
+                        },
+                        "genres": {
+                            "type": "text",
+                            "analyzer": "ngram_analyzer",
+                            "search_analyzer": "whitespace_analyzer",
+                            "fields": {
+                                "keyword": {"type": "keyword", "ignore_above": 50}
+                            }
+                        },
+                        "screenshots": {"type": "keyword", "index": False},
+                        "movies": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "integer", "index": False},
+                                "thumbnail": {"type": "keyword", "index": False}
+                            }
+                        },
+                        "release_date": {
+                            "properties": {
+                                "coming_soon": {"type": "boolean"},
+                                "date": {
+                                    "type": "date",
+                                    "format": "epoch_second",
+                                    "index": False
+                                },
+                                "year": {"type": "integer"}
+                            }
+                        },
+                        "background_raw": {"type": "keyword", "index": False},
+                        "availability_windows": {"type": "boolean"},
+                        "availability_mac": {"type": "boolean"},
+                        "availability_linux": {"type": "boolean"},
+                        "total_recommendations": {"type": "integer"},
+                        "pegi": {
+                            "properties": {
+                                "rating": {"type": "keyword"},
+                                "descriptors": {"type": "text", "index": False}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, json=body)
+        logger('INFO', f'Games index: Map data', f'{response.status_code}')
+
+    def pushData():
+        url = "http://localhost:9200/theeasteregg_games_index/_bulk"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        ndjson_data_path = os.path.join(parent_path, "ndjson_data", "games_bulk.ndjson")
+
+        try:
+            with open(ndjson_data_path, "r", encoding="utf-8") as file:
+                body_content = file.read()
+                response = requests.put(url, headers=headers, data=body_content)
+                logger('INFO', f'Games index: Push data', f'{response.status_code}')
+        except:
+            logger('ERROR', 'Games index: Push data', traceback.format_exc())
+
+    deleteIndex()
+    createIndex()
+    closeIndex()
+    configNgramsAndSynonyms()
+    openIndex()
+    mapData()
+    pushData()
+    logger('INFO', 'Posted games index')
+
 if __name__ == '__main__':
     try:
         initialize()
         #fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
-        fetch_steam_details()
-        fetch_epic_catalog()
-        fetch_battle_catalog()
-        fetch_xbox_catalog()
-        fetch_gog_catalog()
-        json_to_ndjson("games.json", "games_bulk.ndjson")
-        json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
-        json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
-        json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
-        json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
-        json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
-        json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
-        finalize()
+        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
+        #fetch_steam_details()
+        #fetch_epic_catalog()
+        #fetch_battle_catalog()
+        #fetch_xbox_catalog()
+        #fetch_gog_catalog()
+        #json_to_ndjson("games.json", "games_bulk.ndjson")
+        #json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
+        #json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
+        #json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
+        #json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
+        #json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
+        #json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
+        #finalize()
+
+        # ----------
+        postGamesIndex()
 
     except:
         finalize(traceback)

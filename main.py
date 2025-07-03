@@ -1073,8 +1073,8 @@ def json_list_to_ndjson(input_filename, output_filename):
 
         logger(f'INFO', f'Formatted JSON file {input_filename} to NDJSON {output_filename}.')
 
-def postGamesIndex():
-    def deleteIndex():
+def post_games_index():
+    def delete_index():
         url = "http://localhost:9200/theeasteregg_games_index"
 
         headers = {
@@ -1084,7 +1084,7 @@ def postGamesIndex():
         response = requests.delete(url, headers=headers)
         logger('INFO', f'Games index: Delete', f'{response.status_code}')
 
-    def createIndex():
+    def create_index():
         url = "http://localhost:9200/theeasteregg_games_index"
 
         headers = {
@@ -1094,7 +1094,7 @@ def postGamesIndex():
         response = requests.put(url, headers=headers)
         logger('INFO', f'Games index: Create', f'{response.status_code}')
 
-    def closeIndex():
+    def close_index():
         url = "http://localhost:9200/theeasteregg_games_index/_close"
 
         headers = {
@@ -1104,7 +1104,7 @@ def postGamesIndex():
         response = requests.post(url, headers=headers)
         logger('INFO', f'Games index: Close', f'{response.status_code}')
 
-    def configNgramsAndSynonyms():
+    def config_ngrams_and_synonyms():
         url = "http://localhost:9200/theeasteregg_games_index/_settings"
 
         headers = {
@@ -1205,7 +1205,7 @@ def postGamesIndex():
         response = requests.put(url, headers=headers, data=json.dumps(payload))
         logger('INFO', f'Games index: Configure', f'{response.status_code}')
 
-    def openIndex():
+    def open_index():
         url = "http://localhost:9200/theeasteregg_games_index/_open"
 
         headers = {
@@ -1215,7 +1215,7 @@ def postGamesIndex():
         response = requests.post(url, headers=headers)
         logger('INFO', f'Games index: Open', f'{response.status_code}')
 
-    def mapData():
+    def map_data():
         url = "http://localhost:9200/theeasteregg_games_index/_mapping"
 
         headers = {
@@ -1434,7 +1434,7 @@ def postGamesIndex():
         response = requests.put(url, headers=headers, json=body)
         logger('INFO', f'Games index: Map data', f'{response.status_code}')
 
-    def pushData():
+    def push_data():
         url = "http://localhost:9200/theeasteregg_games_index/_bulk"
 
         headers = {
@@ -1452,36 +1452,492 @@ def postGamesIndex():
         except:
             logger('ERROR', 'Games index: Push data', traceback.format_exc())
 
-    deleteIndex()
-    createIndex()
-    closeIndex()
-    configNgramsAndSynonyms()
-    openIndex()
-    mapData()
-    pushData()
+    delete_index()
+    create_index()
+    close_index()
+    config_ngrams_and_synonyms()
+    open_index()
+    map_data()
+    push_data()
     logger('INFO', 'Posted games index')
+
+def post_categories_index():
+    def delete_index():
+        url = "http://localhost:9200/theeasteregg_categories_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.delete(url, headers=headers)
+        logger('INFO', f'Categories index: Delete', f'{response.status_code}')
+
+    def create_index():
+        url = "http://localhost:9200/theeasteregg_categories_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.put(url, headers=headers)
+        logger('INFO', f'Categories index: Create', f'{response.status_code}')
+
+    def map_data():
+        url = "http://localhost:9200/theeasteregg_categories_index/_mapping"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "properties": {
+                "name": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 100
+                        }
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, json=body)
+        logger('INFO', f'Categories index: Map data', f'{response.status_code}')
+
+    def push_data():
+        url = "http://localhost:9200/theeasteregg_categories_index/_bulk"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        ndjson_data_path = os.path.join(parent_path, "ndjson_data", "categories_bulk.ndjson")
+
+        try:
+            with open(ndjson_data_path, "r", encoding="utf-8") as file:
+                body_content = file.read()
+                response = requests.put(url, headers=headers, data=body_content)
+                logger('INFO', f'Categories index: Push data', f'{response.status_code}')
+        except:
+            logger('ERROR', 'Categories index: Push data', traceback.format_exc())
+
+    delete_index()
+    create_index()
+    map_data()
+    push_data()
+    logger('INFO', 'Posted categories index')
+
+def post_genres_index():
+    def delete_index():
+        url = "http://localhost:9200/theeasteregg_genres_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.delete(url, headers=headers)
+        logger('INFO', f'Genres index: Delete', f'{response.status_code}')
+
+    def create_index():
+        url = "http://localhost:9200/theeasteregg_genres_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.put(url, headers=headers)
+        logger('INFO', f'Genres index: Create', f'{response.status_code}')
+
+    def map_data():
+        url = "http://localhost:9200/theeasteregg_genres_index/_mapping"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "properties": {
+                "name": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 100
+                        }
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, json=body)
+        logger('INFO', f'Genres index: Map data', f'{response.status_code}')
+
+    def push_data():
+        url = "http://localhost:9200/theeasteregg_genres_index/_bulk"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        ndjson_data_path = os.path.join(parent_path, "ndjson_data", "genres_bulk.ndjson")
+
+        try:
+            with open(ndjson_data_path, "r", encoding="utf-8") as file:
+                body_content = file.read()
+                response = requests.put(url, headers=headers, data=body_content)
+                logger('INFO', f'Genres index: Push data', f'{response.status_code}')
+        except:
+            logger('ERROR', 'Genres index: Push data', traceback.format_exc())
+
+    delete_index()
+    create_index()
+    map_data()
+    push_data()
+    logger('INFO', 'Posted genres index')
+
+def post_developers_index():
+    def delete_index():
+        url = "http://localhost:9200/theeasteregg_developers_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.delete(url, headers=headers)
+        logger('INFO', f'Developers index: Delete', f'{response.status_code}')
+
+    def create_index():
+        url = "http://localhost:9200/theeasteregg_developers_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.put(url, headers=headers)
+        logger('INFO', f'Developers index: Create', f'{response.status_code}')
+
+    def map_data():
+        url = "http://localhost:9200/theeasteregg_developers_index/_mapping"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "properties": {
+                "name": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 100
+                        }
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, json=body)
+        logger('INFO', f'Developers index: Map data', f'{response.status_code}')
+
+    def push_data():
+        url = "http://localhost:9200/theeasteregg_developers_index/_bulk"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        ndjson_data_path = os.path.join(parent_path, "ndjson_data", "developers_bulk.ndjson")
+
+        try:
+            with open(ndjson_data_path, "r", encoding="utf-8") as file:
+                body_content = file.read()
+                response = requests.put(url, headers=headers, data=body_content)
+                logger('INFO', f'Developers index: Push data', f'{response.status_code}')
+        except:
+            logger('ERROR', 'Developers index: Push data', traceback.format_exc())
+
+    delete_index()
+    create_index()
+    map_data()
+    push_data()
+    logger('INFO', 'Posted developers index')
+
+def post_publishers_index():
+    def delete_index():
+        url = "http://localhost:9200/theeasteregg_publishers_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.delete(url, headers=headers)
+        logger('INFO', f'Publishers index: Delete', f'{response.status_code}')
+
+    def create_index():
+        url = "http://localhost:9200/theeasteregg_publishers_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.put(url, headers=headers)
+        logger('INFO', f'Publishers index: Create', f'{response.status_code}')
+
+    def map_data():
+        url = "http://localhost:9200/theeasteregg_publishers_index/_mapping"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "properties": {
+                "name": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 100
+                        }
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, json=body)
+        logger('INFO', f'Publishers index: Map data', f'{response.status_code}')
+
+    def push_data():
+        url = "http://localhost:9200/theeasteregg_publishers_index/_bulk"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        ndjson_data_path = os.path.join(parent_path, "ndjson_data", "publishers_bulk.ndjson")
+
+        try:
+            with open(ndjson_data_path, "r", encoding="utf-8") as file:
+                body_content = file.read()
+                response = requests.put(url, headers=headers, data=body_content)
+                logger('INFO', f'Publishers index: Push data', f'{response.status_code}')
+        except:
+            logger('ERROR', 'Publishers index: Push data', traceback.format_exc())
+
+    delete_index()
+    create_index()
+    map_data()
+    push_data()
+    logger('INFO', 'Posted publishers index')
+
+def post_pegi_index():
+    def delete_index():
+        url = "http://localhost:9200/theeasteregg_pegi_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.delete(url, headers=headers)
+        logger('INFO', f'PEGI index: Delete', f'{response.status_code}')
+
+    def create_index():
+        url = "http://localhost:9200/theeasteregg_pegi_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.put(url, headers=headers)
+        logger('INFO', f'PEGI index: Create', f'{response.status_code}')
+
+    def map_data():
+        url = "http://localhost:9200/theeasteregg_pegi_index/_mapping"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "properties": {
+                "name": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 20
+                        }
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, json=body)
+        logger('INFO', f'PEGI index: Map data', f'{response.status_code}')
+
+    def push_data():
+        url = "http://localhost:9200/theeasteregg_pegi_index/_bulk"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        ndjson_data_path = os.path.join(parent_path, "ndjson_data", "pegi_bulk.ndjson")
+
+        try:
+            with open(ndjson_data_path, "r", encoding="utf-8") as file:
+                body_content = file.read()
+                response = requests.put(url, headers=headers, data=body_content)
+                logger('INFO', f'PEGI index: Push data', f'{response.status_code}')
+        except:
+            logger('ERROR', 'PEGI index: Push data', traceback.format_exc())
+
+    delete_index()
+    create_index()
+    map_data()
+    push_data()
+    logger('INFO', 'Posted PEGI index')
+
+def post_prices_history_index():
+    def delete_index():
+        url = "http://localhost:9200/theeasteregg_prices_history_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.delete(url, headers=headers)
+        logger('INFO', f'Prices history index: Delete', f'{response.status_code}')
+
+    def create_index():
+        url = "http://localhost:9200/theeasteregg_prices_history_index"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json"
+        }
+
+        response = requests.put(url, headers=headers)
+        logger('INFO', f'Prices history index: Create', f'{response.status_code}')
+
+    def map_data():
+        url = "http://localhost:9200/theeasteregg_prices_history_index/_mapping"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "properties": {
+                "appid": {
+                    "type": "integer",
+                    "index": False
+                },
+                "steam": {
+                    "type": "nested",
+                    "properties": {
+                        "price_in_cents": {"type": "integer", "index": False},
+                        "price_time": {"type": "long", "index": False}
+                    }
+                },
+                "epic": {
+                    "type": "nested",
+                    "properties": {
+                        "price_in_cents": {"type": "integer", "index": False},
+                        "price_time": {"type": "long", "index": False}
+                    }
+                },
+                "xbox": {
+                    "type": "nested",
+                    "properties": {
+                        "price_in_cents": {"type": "integer", "index": False},
+                        "price_time": {"type": "long", "index": False}
+                    }
+                },
+                "battle": {
+                    "type": "nested",
+                    "properties": {
+                        "price_in_cents": {"type": "integer", "index": False},
+                        "price_time": {"type": "long", "index": False}
+                    }
+                },
+                "gog": {
+                    "type": "nested",
+                    "properties": {
+                        "price_in_cents": {"type": "integer", "index": False},
+                        "price_time": {"type": "long", "index": False}
+                    }
+                }
+            }
+        }
+
+        response = requests.put(url, headers=headers, json=body)
+        logger('INFO', f'Prices history index: Map data', f'{response.status_code}')
+
+    def push_data():
+        url = "http://localhost:9200/theeasteregg_prices_history_index/_bulk"
+
+        headers = {
+            "Accept": "application/vnd.twitchtv.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        ndjson_data_path = os.path.join(parent_path, "ndjson_data", "prices_history_bulk.ndjson")
+
+        try:
+            with open(ndjson_data_path, "r", encoding="utf-8") as file:
+                body_content = file.read()
+                response = requests.put(url, headers=headers, data=body_content)
+                logger('INFO', f'Prices history index: Push data', f'{response.status_code}')
+        except:
+            logger('ERROR', 'Prices history index: Push data', traceback.format_exc())
+
+    delete_index()
+    create_index()
+    map_data()
+    push_data()
+    logger('INFO', 'Posted prices history index')
 
 if __name__ == '__main__':
     try:
         initialize()
-        #fetch_steam_catalog()
-        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
+        fetch_steam_catalog()
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
         #fetch_steam_details()
-        #fetch_epic_catalog()
-        #fetch_battle_catalog()
-        #fetch_xbox_catalog()
-        #fetch_gog_catalog()
-        #json_to_ndjson("games.json", "games_bulk.ndjson")
-        #json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
-        #json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
-        #json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
-        #json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
-        #json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
-        #json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
-        #finalize()
+        fetch_epic_catalog()
+        fetch_battle_catalog()
+        fetch_xbox_catalog()
+        fetch_gog_catalog()
+        json_to_ndjson("games.json", "games_bulk.ndjson")
+        json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
+        json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
+        json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
+        json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
+        json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
+        json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
+        finalize()
 
         # ----------
-        postGamesIndex()
+        post_games_index()
+        post_categories_index()
+        post_genres_index()
+        post_developers_index()
+        post_publishers_index()
+        post_pegi_index()
+        post_prices_history_index()
 
     except:
         finalize(traceback)

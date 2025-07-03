@@ -1921,6 +1921,8 @@ if __name__ == '__main__':
         fetch_battle_catalog()
         fetch_xbox_catalog()
         fetch_gog_catalog()
+
+        # ----------
         json_to_ndjson("games.json", "games_bulk.ndjson")
         json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
         json_list_to_ndjson("genres.json", "genres_bulk.ndjson")

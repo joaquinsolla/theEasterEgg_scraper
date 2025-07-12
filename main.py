@@ -70,7 +70,7 @@ def finalize(error=None):
         execution = old_data["exec_no"] + 1
     new_data = {
         "exec_no": execution,
-        "time": get_time(),
+        "time": unix_time_to_legible_datetime(get_time()),
         "error": error
     }
     write_json("fetching_info.json", new_data)
@@ -112,6 +112,9 @@ def iso_time_to_unix_time(timestamp: str) -> int:
     Convierte una fecha en formato ISO 8601 (UTC) a UNIX timestamp.
     """
     return int(datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").timestamp())
+
+def unix_time_to_legible_datetime(epoch_seconds):
+    return datetime.fromtimestamp(epoch_seconds).strftime('%d/%m/%Y %H:%M:%S')
 
 def get_url_name(name):
     name = name.strip().lower()

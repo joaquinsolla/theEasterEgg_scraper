@@ -1098,7 +1098,7 @@ def post_games_index():
         url = "http://localhost:9200/theeasteregg_games_index/_close"
 
         headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         response = requests.post(url, headers=headers)
@@ -1108,7 +1108,7 @@ def post_games_index():
         url = "http://localhost:9200/theeasteregg_games_index/_settings"
 
         headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         payload = {
@@ -1209,7 +1209,7 @@ def post_games_index():
         url = "http://localhost:9200/theeasteregg_games_index/_open"
 
         headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         response = requests.post(url, headers=headers)
@@ -1220,7 +1220,7 @@ def post_games_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json",
+            "Content-Type": "application/x-ndjson",
         }
 
         body = {
@@ -1435,21 +1435,36 @@ def post_games_index():
         logger('INFO', f'Games index: Map data', f'{response.status_code}')
 
     def push_data():
-        url = "http://localhost:9200/theeasteregg_games_index/_bulk"
+        BULK_CHUNK_SIZE = 5000
+        ES_URL = "http://localhost:9200/theeasteregg_games_index/_bulk"
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         ndjson_data_path = os.path.join(parent_path, "ndjson_data", "games_bulk.ndjson")
 
         try:
             with open(ndjson_data_path, "r", encoding="utf-8") as file:
-                body_content = file.read()
-                response = requests.put(url, headers=headers, data=body_content)
-                logger('INFO', f'Games index: Push data', f'{response.status_code}')
-        except:
+                lines = file.readlines()
+
+            if len(lines) % 2 != 0:
+                logger('ERROR', 'Games index: Push data', 'NDJSON format error: odd number of lines')
+                return
+
+            for i in range(0, len(lines), BULK_CHUNK_SIZE):
+                chunk = lines[i:i + BULK_CHUNK_SIZE]
+                body = ''.join(chunk)
+
+                response = requests.post(ES_URL, headers=headers, data=body)
+
+                if response.status_code >= 400:
+                    logger('ERROR', f'Games index: Push data chunk [{i} - {i+BULK_CHUNK_SIZE}]', f'{response.status_code}: {response.text}')
+                else:
+                    logger('INFO', f'Games index: Push data chunk [{i} - {i+BULK_CHUNK_SIZE}]', f'{response.status_code}')
+
+        except Exception:
             logger('ERROR', 'Games index: Push data', traceback.format_exc())
 
     delete_index()
@@ -1487,7 +1502,7 @@ def post_categories_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         body = {
@@ -1512,7 +1527,7 @@ def post_categories_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         ndjson_data_path = os.path.join(parent_path, "ndjson_data", "categories_bulk.ndjson")
@@ -1557,7 +1572,7 @@ def post_genres_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         body = {
@@ -1582,7 +1597,7 @@ def post_genres_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         ndjson_data_path = os.path.join(parent_path, "ndjson_data", "genres_bulk.ndjson")
@@ -1627,7 +1642,7 @@ def post_developers_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         body = {
@@ -1652,7 +1667,7 @@ def post_developers_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         ndjson_data_path = os.path.join(parent_path, "ndjson_data", "developers_bulk.ndjson")
@@ -1697,7 +1712,7 @@ def post_publishers_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         body = {
@@ -1722,7 +1737,7 @@ def post_publishers_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         ndjson_data_path = os.path.join(parent_path, "ndjson_data", "publishers_bulk.ndjson")
@@ -1767,7 +1782,7 @@ def post_pegi_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         body = {
@@ -1792,7 +1807,7 @@ def post_pegi_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         ndjson_data_path = os.path.join(parent_path, "ndjson_data", "pegi_bulk.ndjson")
@@ -1837,7 +1852,7 @@ def post_prices_history_index():
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         body = {
@@ -1888,21 +1903,38 @@ def post_prices_history_index():
         logger('INFO', f'Prices history index: Map data', f'{response.status_code}')
 
     def push_data():
-        url = "http://localhost:9200/theeasteregg_prices_history_index/_bulk"
+        BULK_CHUNK_SIZE = 5000
+        ES_URL = "http://localhost:9200/theeasteregg_prices_history_index/_bulk"
 
         headers = {
             "Accept": "application/vnd.twitchtv.v3+json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-ndjson"
         }
 
         ndjson_data_path = os.path.join(parent_path, "ndjson_data", "prices_history_bulk.ndjson")
 
         try:
             with open(ndjson_data_path, "r", encoding="utf-8") as file:
-                body_content = file.read()
-                response = requests.put(url, headers=headers, data=body_content)
-                logger('INFO', f'Prices history index: Push data', f'{response.status_code}')
-        except:
+                lines = file.readlines()
+
+            if len(lines) % 2 != 0:
+                logger('ERROR', 'Prices history index: Push data', 'NDJSON format error: odd number of lines')
+                return
+
+            for i in range(0, len(lines), BULK_CHUNK_SIZE):
+                chunk = lines[i:i + BULK_CHUNK_SIZE]
+                body = ''.join(chunk)
+
+                response = requests.post(ES_URL, headers=headers, data=body)
+
+                if response.status_code >= 400:
+                    logger('ERROR', f'Prices history index: Push data chunk [{i} - {i + BULK_CHUNK_SIZE}]',
+                           f'{response.status_code}: {response.text}')
+                else:
+                    logger('INFO', f'Prices history index: Push data chunk [{i} - {i + BULK_CHUNK_SIZE}]',
+                           f'{response.status_code}')
+
+        except Exception:
             logger('ERROR', 'Prices history index: Push data', traceback.format_exc())
 
     delete_index()
@@ -1913,24 +1945,24 @@ def post_prices_history_index():
 
 if __name__ == '__main__':
     try:
-        initialize()
-        fetch_steam_catalog()
-        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
+        #initialize()
+        #fetch_steam_catalog()
+        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
         #fetch_steam_details()
-        fetch_epic_catalog()
-        fetch_battle_catalog()
-        fetch_xbox_catalog()
-        fetch_gog_catalog()
+        #fetch_epic_catalog()
+        #fetch_battle_catalog()
+        #fetch_xbox_catalog()
+        #fetch_gog_catalog()
 
         # ----------
-        json_to_ndjson("games.json", "games_bulk.ndjson")
-        json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
-        json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
-        json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
-        json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
-        json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
-        json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
-        finalize()
+        #json_to_ndjson("games.json", "games_bulk.ndjson")
+        #json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
+        #json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
+        #json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
+        #json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
+        #json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
+        #json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
+        #finalize()
 
         # ----------
         post_games_index()

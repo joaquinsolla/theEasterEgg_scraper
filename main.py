@@ -67,7 +67,7 @@ def finalize(error=None):
     old_data = read_json("fetching_info.json")
     execution = 1
     if "exec_no" in old_data:
-        execution = old_data["exec_no"]+1
+        execution = old_data["exec_no"] + 1
     new_data = {
         "exec_no": execution,
         "time": get_time(),
@@ -1945,24 +1945,24 @@ def post_prices_history_index():
 
 if __name__ == '__main__':
     try:
-        #initialize()
-        #fetch_steam_catalog()
+        initialize()
+        fetch_steam_catalog()
         #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
-        #fetch_steam_details()
-        #fetch_epic_catalog()
-        #fetch_battle_catalog()
-        #fetch_xbox_catalog()
-        #fetch_gog_catalog()
+        fetch_steam_details()
+        fetch_epic_catalog()
+        fetch_battle_catalog()
+        fetch_xbox_catalog()
+        fetch_gog_catalog()
 
         # ----------
-        #json_to_ndjson("games.json", "games_bulk.ndjson")
-        #json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
-        #json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
-        #json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
-        #json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
-        #json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
-        #json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
-        #finalize()
+        json_to_ndjson("games.json", "games_bulk.ndjson")
+        json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
+        json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
+        json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
+        json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
+        json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
+        json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
+        finalize()
 
         # ----------
         post_games_index()
@@ -1974,5 +1974,5 @@ if __name__ == '__main__':
         post_prices_history_index()
 
     except:
-        finalize(traceback)
+        finalize(traceback.format_exc())
         logger('ERROR', traceback.format_exc())

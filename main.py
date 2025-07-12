@@ -10,6 +10,9 @@ import shutil
 from datetime import datetime
 from epicstore_api import EpicGamesStoreAPI
 import xml.etree.ElementTree as ET
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 parent_path = './' # Default
 #parent_path = '/home/raspy/Desktop/theEasterEgg_scraper/' # Crontab
@@ -74,6 +77,7 @@ def finalize(error=None):
         "error": error
     }
     write_json("fetching_info.json", new_data)
+    send_status_email(new_data)
 
 def read_json(filename):
     file_path = os.path.join(parent_path, 'json_data', filename)
@@ -1946,6 +1950,50 @@ def post_prices_history_index():
     push_data()
     logger('INFO', 'Posted prices history index')
 
+def send_status_email(data):
+    exec_no = data["exec_no"]
+    execution_time = data["time"]
+    error = data["error"]
+
+    subject = f"""[SUCCESS] TEEgg execution {execution_time}"""
+    body = ""
+    body += f"""Execution time: {execution_time}<br>"""
+    body += f"""Execution number: {exec_no}<br>"""
+    if error is None:
+        body += f"""<br><b>EXECUTION SUCCESSFUL</b>"""
+    else:
+        body += f"""<br><b>EXECUTED WITH ERRORS:</b><br>{error}"""
+        subject = f"""[FAILED] TEEgg execution {execution_time}"""
+
+    credentials = []
+    with open(parent_path + "/credentials/email_credentials.txt", 'r') as file:
+        for line in file:
+            credentials.append(line.strip())
+
+    clients = []
+    with open(parent_path + "/credentials/email_clients.txt", 'r') as file:
+        for line in file:
+            clients.append(line.strip())
+
+    from_email = credentials[0]
+    password = credentials[1]
+    to_email = clients[0]
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587  # TLS Port
+
+    msg = MIMEMultipart()
+    msg['From'] = from_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText('<html><body>' + body + '</body></html>', 'html'))
+
+    server = smtplib.SMTP(smtp_server, smtp_port)
+    server.starttls()
+    server.login(from_email, password)
+    server.sendmail(from_email, to_email, msg.as_string())
+    server.quit()
+    logger('INFO', 'Sent status email')
+
 if __name__ == '__main__':
     try:
         initialize()
@@ -1965,7 +2013,6 @@ if __name__ == '__main__':
         json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
         json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
         json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
-        finalize()
 
         # ----------
         post_games_index()
@@ -1976,6 +2023,8 @@ if __name__ == '__main__':
         post_pegi_index()
         post_prices_history_index()
 
+        # ----------
+        finalize()
     except:
         finalize(traceback.format_exc())
         logger('ERROR', traceback.format_exc())

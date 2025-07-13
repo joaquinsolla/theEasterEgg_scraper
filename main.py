@@ -596,7 +596,8 @@ def fetch_steam_catalog_by_ids(ids_list):
     :return:
     """
     logger('INFO','Started fetching Steam catalog')
-    with open("credentials/steam_api_key.txt", 'r', encoding='utf-8') as f:
+    file_path = os.path.join(parent_path, "credentials/steam_api_key.txt")
+    with open(file_path, 'r', encoding='utf-8') as f:
         steam_api_key = f.read().strip()
 
     apps = []

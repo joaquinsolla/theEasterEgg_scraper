@@ -7,7 +7,7 @@ from scrapy.spiders import Spider
 from main import logger, get_time
 
 parent_path = './' # Default
-#parent_path = '/home/raspy/Desktop/theEasterEgg_scraper/' # Crontab
+#parent_path = '/home/raspy/Desktop/theEasterEgg_scraper' # Crontab
 
 def read_json(filename):
     file_path = os.path.join(parent_path, 'json_data', filename)

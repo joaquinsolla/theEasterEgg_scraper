@@ -15,7 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 parent_path = './' # Default
-#parent_path = '/home/raspy/Desktop/theEasterEgg_scraper/' # Crontab
+#parent_path = '/home/raspy/Desktop/theEasterEgg_scraper' # Crontab
 history_limit = 10
 
 def initialize():

@@ -686,7 +686,7 @@ def fetch_steam_details(limit=None):
                                         pegi.append(rating)
 
                         # Prices history (Steam)
-                        if app["stores"]["steam"]["price_in_cents"] is not None and app["stores"]["steam"]["price_in_cents"] >= 0:
+                        if app["stores"]["steam"]["price_in_cents"] is not None and 0 <= app["stores"]["steam"]["price_in_cents"] <= 11000:
                             new_price = {
                                 "price_in_cents": app["stores"]["steam"]["price_in_cents"],
                                 "price_time": app["stores"]["steam"]["price_time"],

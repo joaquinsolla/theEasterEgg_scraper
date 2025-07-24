@@ -136,8 +136,12 @@ def get_steam_data(data):
         availability = True
         price_in_cents = 0
     elif "price_overview" in data:
-        availability = True
-        price_in_cents = data["price_overview"]["final"]
+        if data["price_overview"]["final"] > 11000:
+            availability = False
+            price_in_cents = -1
+        else:
+            availability = True
+            price_in_cents = data["price_overview"]["final"]
 
     if availability:
         url = "https://store.steampowered.com/app/" + str(data["steam_appid"])
@@ -2000,33 +2004,33 @@ if __name__ == '__main__':
     try:
         initialize()
         #fetch_steam_catalog()
-        #fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570]) # TEST
-        #fetch_steam_details()
-        fetch_epic_catalog()
+        fetch_steam_catalog_by_ids([10, 311210, 1174180, 377160, 552520, 2344520, 1985820, 1091500, 214490, 1002300, 1245620, 646270, 235600, 1888930, 1716740, 268910, 3180070, 1716740, 668580, 202970, 235600, 1771300, 1085660, 2767030, 578080, 1962663, 1665460, 440, 570, 224880, 17390]) # TEST
+        fetch_steam_details()
+        #fetch_epic_catalog()
         #fetch_battle_catalog()
         #fetch_xbox_catalog()
         #fetch_gog_catalog()
 
         # ----------
-        #json_to_ndjson("games.json", "games_bulk.ndjson")
-        #json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
-        #json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
-        #json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
-        #json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
-        #json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
-        #json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
+        json_to_ndjson("games.json", "games_bulk.ndjson")
+        json_list_to_ndjson("categories.json", "categories_bulk.ndjson")
+        json_list_to_ndjson("genres.json", "genres_bulk.ndjson")
+        json_list_to_ndjson("developers.json", "developers_bulk.ndjson")
+        json_list_to_ndjson("publishers.json", "publishers_bulk.ndjson")
+        json_list_to_ndjson("pegi.json", "pegi_bulk.ndjson")
+        json_to_ndjson("prices_history.json", "prices_history_bulk.ndjson")
 
         # ----------
-        #post_games_index()
-        #post_categories_index()
-        #post_genres_index()
-        #post_developers_index()
-        #post_publishers_index()
-        #post_pegi_index()
-        #post_prices_history_index()
+        post_games_index()
+        post_categories_index()
+        post_genres_index()
+        post_developers_index()
+        post_publishers_index()
+        post_pegi_index()
+        post_prices_history_index()
 
         # ----------
         #finalize()
     except:
-        finalize(traceback.format_exc())
+        #finalize(traceback.format_exc())
         logger('ERROR', traceback.format_exc())
